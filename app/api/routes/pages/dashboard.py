@@ -54,8 +54,10 @@ def build_dashboard_items(db: Session) -> list[dict]:
                 "temperature": latest.temperature,
                 "temperature_fahrenheit": latest.temperature_fahrenheit,
                 "condition_text": latest.condition_text,
+                "condition_code": latest.condition_code,
                 "humidity": latest.humidity,
                 "wind_speed": latest.wind_speed,
+                "pressure": latest.pressure,
                 "source_api": latest.source_api,
                 "timestamp": latest.timestamp.strftime("%Y-%m-%d %H:%M UTC")
                 if latest.timestamp

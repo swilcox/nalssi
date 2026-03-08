@@ -1,49 +1,63 @@
+{% from "_weather_icon.html" import render as weather_icon_svg %}
 <article class="weather-card" id="weather-card-{{ slug }}" hx-swap-oob="{{ 'true' if oob else 'false' }}">
-    <h3>{{ name }}</h3>
+    <div class="weather-card-header">
+        <h3>{{ name }}</h3>
+        {% if alert_count > 0 %}
+        <a href="/alerts" style="text-decoration: none;"><span class="badge badge-warning">{{ alert_count }} alert{{ "s" if alert_count != 1 }}</span></a>
+        {% endif %}
+        {% if not enabled %}
+        <span class="badge badge-muted">Disabled</span>
+        {% endif %}
+    </div>
     {% if weather %}
-    <div class="temp">
-        {% if weather.temperature is not none %}
-            {{ "%.1f"|format(weather.temperature) }}&deg;C
-        {% else %}
-            --
-        {% endif %}
+    <div class="temp-row">
+        {{ weather_icon_svg(weather.condition_text | weather_icon, "52") }}
+        <div>
+            <div class="temp">
+                {% if weather.temperature is not none %}
+                    {{ "%.1f"|format(weather.temperature) }}&deg;C
+                {% else %}
+                    --
+                {% endif %}
+            </div>
+            {% if weather.temperature_fahrenheit is not none %}
+            <div class="temp-secondary">{{ "%.1f"|format(weather.temperature_fahrenheit) }}&deg;F</div>
+            {% endif %}
+        </div>
     </div>
-    <div class="details">
-        {% if weather.temperature_fahrenheit is not none %}
-            <span>{{ "%.1f"|format(weather.temperature_fahrenheit) }}&deg;F</span>
-        {% endif %}
-        {% if weather.condition_text %}
-            &middot; {{ weather.condition_text }}
-        {% endif %}
-    </div>
-    <div class="details" style="margin-top: 0.5rem;">
+    {% if weather.condition_text %}
+    <div class="condition">{{ weather.condition_text }}</div>
+    {% endif %}
+    <div class="details-grid">
         {% if weather.humidity is not none %}
-            Humidity: {{ weather.humidity }}%
+        <div class="detail-item">
+            <svg class="detail-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-5.33 8-8 12.67-8 16a8 8 0 0016 0c0-3.33-2.67-8-8-16z"/></svg>
+            <span>{{ weather.humidity }}%</span>
+        </div>
         {% endif %}
         {% if weather.wind_speed is not none %}
-            &middot; Wind: {{ "%.1f"|format(weather.wind_speed) }} m/s
+        <div class="detail-item">
+            <svg class="detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.59 4.59A2 2 0 1113 8H2m9.59 11.41A2 2 0 1013 16H2m12.73-8.27A2.5 2.5 0 1118 12H2"/></svg>
+            <span>{{ "%.1f"|format(weather.wind_speed) }} m/s</span>
+        </div>
+        {% endif %}
+        {% if weather.pressure is not none %}
+        <div class="detail-item">
+            <svg class="detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <span>{{ "%.0f"|format(weather.pressure) }} hPa</span>
+        </div>
         {% endif %}
     </div>
-    <div class="details" style="margin-top: 0.25rem;">
-        <small>{{ weather.source_api }} &middot; {{ weather.timestamp }}</small>
+    <div class="source-info">
+        {{ weather.source_api }} &middot; {{ weather.timestamp }}
     </div>
     {% if weather.raw_data %}
     <details style="margin-top: 0.5rem;">
         <summary><small>Raw API Data</small></summary>
-        <pre style="font-size: 0.75rem; max-height: 300px; overflow: auto; margin-top: 0.5rem;">{{ weather.raw_data | tojson(indent=2) }}</pre>
+        <pre style="font-size: 0.7rem; max-height: 300px; overflow: auto; margin-top: 0.5rem;">{{ weather.raw_data | tojson(indent=2) }}</pre>
     </details>
     {% endif %}
     {% else %}
-    <div class="details">No data collected yet</div>
-    {% endif %}
-    {% if alert_count > 0 %}
-    <div style="margin-top: 0.5rem;">
-        <a href="/alerts" style="text-decoration: none;"><span class="badge badge-warning">{{ alert_count }} alert{{ "s" if alert_count != 1 }}</span></a>
-    </div>
-    {% endif %}
-    {% if not enabled %}
-    <div style="margin-top: 0.5rem;">
-        <span class="badge badge-muted">Disabled</span>
-    </div>
+    <div class="no-data">No data collected yet</div>
     {% endif %}
 </article>
