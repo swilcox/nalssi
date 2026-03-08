@@ -90,8 +90,15 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     items = build_dashboard_items(db)
     nav_alert_count = get_active_alert_count(db)
 
+    # Return content-only fragment for HTMX polling fallback
+    template = (
+        "dashboard/_content.html"
+        if request.headers.get("HX-Request")
+        else "dashboard.html"
+    )
+
     return templates.TemplateResponse(
-        "dashboard.html",
+        template,
         {
             "request": request,
             "locations": items,

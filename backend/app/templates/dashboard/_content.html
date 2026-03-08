@@ -1,0 +1,13 @@
+<h1>Weather Dashboard</h1>
+
+{% if not locations %}
+<p>No locations configured. <a href="/locations">Add a location</a> to get started.</p>
+{% else %}
+<div class="weather-grid" id="weather-grid" hx-ext="ws" ws-connect="/ws/weather">
+    {% for item in locations %}
+    {% with slug=item.slug, name=item.name, weather=item.weather, alert_count=item.alert_count, enabled=item.enabled, oob=false %}
+    {% include "dashboard/_card.html" %}
+    {% endwith %}
+    {% endfor %}
+</div>
+{% endif %}

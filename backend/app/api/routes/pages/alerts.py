@@ -67,7 +67,13 @@ def alerts_page(request: Request, db: Session = Depends(get_db)):
     """Active weather alerts across all locations."""
     items = build_alert_items(db)
 
+    template = (
+        "alerts/_content.html"
+        if request.headers.get("HX-Request")
+        else "alerts/list.html"
+    )
+
     return templates.TemplateResponse(
-        "alerts/list.html",
+        template,
         {"request": request, "alerts": items, "alert_count": len(items)},
     )

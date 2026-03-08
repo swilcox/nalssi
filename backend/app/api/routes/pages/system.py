@@ -79,8 +79,14 @@ def system_status(request: Request, db: Session = Depends(get_db)):
 
     last_collections = build_last_collections(db)
 
+    template = (
+        "system/_content.html"
+        if request.headers.get("HX-Request")
+        else "system/status.html"
+    )
+
     return templates.TemplateResponse(
-        "system/status.html",
+        template,
         {
             "request": request,
             "version": settings.APP_VERSION,

@@ -162,12 +162,24 @@
             background: var(--pico-muted-color);
             margin-right: 0.25rem;
             vertical-align: middle;
+            transition: background 0.3s ease;
         }
         .ws-status.connected {
             background: #2ecc40;
         }
         .ws-status.disconnected {
             background: #e74c3c;
+        }
+        /* Highlight animation when content updates via OOB swap */
+        .weather-card, .alert-card, .stat-card {
+            transition: background-color 0.6s ease;
+        }
+        @keyframes flash-update {
+            0% { background-color: rgba(46, 204, 64, 0.15); }
+            100% { background-color: transparent; }
+        }
+        .htmx-settling {
+            animation: flash-update 0.8s ease-out;
         }
     </style>
 </head>
@@ -194,14 +206,36 @@
             });
         });
 
-        // WebSocket connection status indicator
-        var wsStatus = document.getElementById("ws-status");
-        document.body.addEventListener("htmx:wsOpen", function() {
-            if (wsStatus) { wsStatus.className = "ws-status connected"; wsStatus.title = "Live updates active"; }
-        });
-        document.body.addEventListener("htmx:wsClose", function() {
-            if (wsStatus) { wsStatus.className = "ws-status disconnected"; wsStatus.title = "Live updates disconnected"; }
-        });
+        // WebSocket connection status + polling fallback
+        (function() {
+            var wsStatus = document.getElementById("ws-status");
+            var pollTimer = null;
+
+            function startPolling() {
+                if (pollTimer) return;
+                pollTimer = setInterval(function() {
+                    // Reload the current page content as fallback
+                    var main = document.querySelector("main.container");
+                    if (main) {
+                        htmx.ajax("GET", window.location.pathname, {target: main, swap: "innerHTML"});
+                    }
+                }, 60000);
+            }
+
+            function stopPolling() {
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            }
+
+            document.body.addEventListener("htmx:wsOpen", function() {
+                if (wsStatus) { wsStatus.className = "ws-status connected"; wsStatus.title = "Live updates active"; }
+                stopPolling();
+            });
+
+            document.body.addEventListener("htmx:wsClose", function() {
+                if (wsStatus) { wsStatus.className = "ws-status disconnected"; wsStatus.title = "Live updates disconnected — refreshing every 60s"; }
+                startPolling();
+            });
+        })();
     </script>
 </body>
 </html>
