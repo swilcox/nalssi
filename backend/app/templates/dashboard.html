@@ -6,57 +6,11 @@
 {% if not locations %}
 <p>No locations configured. <a href="/locations">Add a location</a> to get started.</p>
 {% else %}
-<div class="weather-grid">
+<div class="weather-grid" id="weather-grid" hx-ext="ws" ws-connect="/ws/weather">
     {% for item in locations %}
-    <article class="weather-card">
-        <h3>{{ item.name }}</h3>
-        {% if item.weather %}
-        <div class="temp">
-            {% if item.weather.temperature is not none %}
-                {{ "%.1f"|format(item.weather.temperature) }}&deg;C
-            {% else %}
-                --
-            {% endif %}
-        </div>
-        <div class="details">
-            {% if item.weather.temperature_fahrenheit is not none %}
-                <span>{{ "%.1f"|format(item.weather.temperature_fahrenheit) }}&deg;F</span>
-            {% endif %}
-            {% if item.weather.condition_text %}
-                &middot; {{ item.weather.condition_text }}
-            {% endif %}
-        </div>
-        <div class="details" style="margin-top: 0.5rem;">
-            {% if item.weather.humidity is not none %}
-                Humidity: {{ item.weather.humidity }}%
-            {% endif %}
-            {% if item.weather.wind_speed is not none %}
-                &middot; Wind: {{ "%.1f"|format(item.weather.wind_speed) }} m/s
-            {% endif %}
-        </div>
-        <div class="details" style="margin-top: 0.25rem;">
-            <small>{{ item.weather.source_api }} &middot; {{ item.weather.timestamp }}</small>
-        </div>
-        {% if item.weather.raw_data %}
-        <details style="margin-top: 0.5rem;">
-            <summary><small>Raw API Data</small></summary>
-            <pre style="font-size: 0.75rem; max-height: 300px; overflow: auto; margin-top: 0.5rem;">{{ item.weather.raw_data | tojson(indent=2) }}</pre>
-        </details>
-        {% endif %}
-        {% else %}
-        <div class="details">No data collected yet</div>
-        {% endif %}
-        {% if item.alert_count > 0 %}
-        <div style="margin-top: 0.5rem;">
-            <a href="/alerts" style="text-decoration: none;"><span class="badge badge-warning">{{ item.alert_count }} alert{{ "s" if item.alert_count != 1 }}</span></a>
-        </div>
-        {% endif %}
-        {% if not item.enabled %}
-        <div style="margin-top: 0.5rem;">
-            <span class="badge badge-muted">Disabled</span>
-        </div>
-        {% endif %}
-    </article>
+    {% with slug=item.slug, name=item.name, weather=item.weather, alert_count=item.alert_count, enabled=item.enabled, oob=false %}
+    {% include "dashboard/_card.html" %}
+    {% endwith %}
     {% endfor %}
 </div>
 {% endif %}

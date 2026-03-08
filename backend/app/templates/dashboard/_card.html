@@ -1,0 +1,49 @@
+<article class="weather-card" id="weather-card-{{ slug }}" hx-swap-oob="{{ 'true' if oob else 'false' }}">
+    <h3>{{ name }}</h3>
+    {% if weather %}
+    <div class="temp">
+        {% if weather.temperature is not none %}
+            {{ "%.1f"|format(weather.temperature) }}&deg;C
+        {% else %}
+            --
+        {% endif %}
+    </div>
+    <div class="details">
+        {% if weather.temperature_fahrenheit is not none %}
+            <span>{{ "%.1f"|format(weather.temperature_fahrenheit) }}&deg;F</span>
+        {% endif %}
+        {% if weather.condition_text %}
+            &middot; {{ weather.condition_text }}
+        {% endif %}
+    </div>
+    <div class="details" style="margin-top: 0.5rem;">
+        {% if weather.humidity is not none %}
+            Humidity: {{ weather.humidity }}%
+        {% endif %}
+        {% if weather.wind_speed is not none %}
+            &middot; Wind: {{ "%.1f"|format(weather.wind_speed) }} m/s
+        {% endif %}
+    </div>
+    <div class="details" style="margin-top: 0.25rem;">
+        <small>{{ weather.source_api }} &middot; {{ weather.timestamp }}</small>
+    </div>
+    {% if weather.raw_data %}
+    <details style="margin-top: 0.5rem;">
+        <summary><small>Raw API Data</small></summary>
+        <pre style="font-size: 0.75rem; max-height: 300px; overflow: auto; margin-top: 0.5rem;">{{ weather.raw_data | tojson(indent=2) }}</pre>
+    </details>
+    {% endif %}
+    {% else %}
+    <div class="details">No data collected yet</div>
+    {% endif %}
+    {% if alert_count > 0 %}
+    <div style="margin-top: 0.5rem;">
+        <a href="/alerts" style="text-decoration: none;"><span class="badge badge-warning">{{ alert_count }} alert{{ "s" if alert_count != 1 }}</span></a>
+    </div>
+    {% endif %}
+    {% if not enabled %}
+    <div style="margin-top: 0.5rem;">
+        <span class="badge badge-muted">Disabled</span>
+    </div>
+    {% endif %}
+</article>

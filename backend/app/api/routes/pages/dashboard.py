@@ -18,9 +18,8 @@ from app.templating import templates
 router = APIRouter()
 
 
-@router.get("/")
-def dashboard(request: Request, db: Session = Depends(get_db)):
-    """Weather dashboard with cards for all locations."""
+def build_dashboard_items(db: Session) -> list[dict]:
+    """Build the list of location items with weather data and alert counts."""
     locations = db.query(Location).order_by(Location.name).all()
     now = datetime.now(UTC)
 
@@ -66,6 +65,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
         items.append(
             {
+                "slug": loc.slug or str(loc.id),
                 "name": loc.name,
                 "enabled": loc.enabled,
                 "weather": weather_info,
@@ -73,7 +73,28 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             }
         )
 
+    return items
+
+
+def get_active_alert_count(db: Session) -> int:
+    """Get total active alert count across all locations."""
+    now = datetime.now(UTC)
+    return (
+        db.query(func.count(Alert.id)).filter(Alert.expires > now).scalar() or 0
+    )
+
+
+@router.get("/")
+def dashboard(request: Request, db: Session = Depends(get_db)):
+    """Weather dashboard with cards for all locations."""
+    items = build_dashboard_items(db)
+    nav_alert_count = get_active_alert_count(db)
+
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": request, "locations": items},
+        {
+            "request": request,
+            "locations": items,
+            "nav_alert_count": nav_alert_count,
+        },
     )

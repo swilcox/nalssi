@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import backends, locations, system, weather
+from app.api.routes import backends, locations, system, weather, ws
 from app.api.routes.pages import alerts as page_alerts
 from app.api.routes.pages import backends as page_backends
 from app.api.routes.pages import dashboard as page_dashboard
@@ -81,6 +81,9 @@ app.include_router(system.router, tags=["System"])
 app.include_router(locations.router, prefix="/api/v1", tags=["Locations"])
 app.include_router(weather.router, prefix="/api/v1", tags=["Weather"])
 app.include_router(backends.router, prefix="/api/v1", tags=["Backends"])
+
+# Include WebSocket router
+app.include_router(ws.router)
 
 # Include page routers (server-rendered HTML with htmx)
 app.include_router(page_dashboard.router, tags=["Pages"])

@@ -6,6 +6,7 @@
     <title>{% block title %}Nalssi{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/htmx-ext-ws@2.0.2/ws.js"></script>
     <style>
         :root {
             --pico-font-size: 16px;
@@ -153,16 +154,31 @@
         .htmx-request.htmx-indicator {
             display: inline;
         }
+        .ws-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--pico-muted-color);
+            margin-right: 0.25rem;
+            vertical-align: middle;
+        }
+        .ws-status.connected {
+            background: #2ecc40;
+        }
+        .ws-status.disconnected {
+            background: #e74c3c;
+        }
     </style>
 </head>
 <body>
     <nav class="container-fluid">
         <ul>
-            <li><strong><a href="/" class="contrast">Nalssi</a></strong></li>
+            <li><strong><a href="/" class="contrast">Nalssi</a></strong> <span id="ws-status" class="ws-status" title="Live updates"></span></li>
         </ul>
         <ul>
             <li><a href="/">Dashboard</a></li>
-            <li><a href="/alerts">Alerts</a></li>
+            <li><a href="/alerts">Alerts <span id="nav-alert-count">{% if nav_alert_count is defined and nav_alert_count %}<span class="badge badge-warning" style="font-size: 0.7rem; vertical-align: super;">{{ nav_alert_count }}</span>{% endif %}</span></a></li>
             <li><a href="/locations">Locations</a></li>
             <li><a href="/backends">Backends</a></li>
             <li><a href="/system">System</a></li>
@@ -176,6 +192,15 @@
             document.querySelectorAll(".error-message").forEach(function(el) {
                 el.innerHTML = "";
             });
+        });
+
+        // WebSocket connection status indicator
+        var wsStatus = document.getElementById("ws-status");
+        document.body.addEventListener("htmx:wsOpen", function() {
+            if (wsStatus) { wsStatus.className = "ws-status connected"; wsStatus.title = "Live updates active"; }
+        });
+        document.body.addEventListener("htmx:wsClose", function() {
+            if (wsStatus) { wsStatus.className = "ws-status disconnected"; wsStatus.title = "Live updates disconnected"; }
         });
     </script>
 </body>

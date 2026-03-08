@@ -15,6 +15,7 @@ from app.database import SessionLocal
 from app.models.alert import Alert
 from app.models.location import Location
 from app.models.weather import WeatherData
+from app.services.broadcast import manager as broadcast_manager
 from app.services.outputs.manager import OutputManager
 from app.services.weather_apis.noaa import NOAAWeatherClient
 from app.services.weather_apis.open_meteo import OpenMeteoClient
@@ -85,6 +86,9 @@ class WeatherCollector:
                     "errors": stats["error_count"],
                 },
             )
+
+            # Broadcast live updates to WebSocket clients
+            await self._broadcast_updates(db)
 
         except Exception as e:
             logger.error(
@@ -261,6 +265,53 @@ class WeatherCollector:
                     "location_id": str(location.id),
                     "error": str(e),
                 },
+            )
+
+    async def _broadcast_updates(self, db: Session) -> None:
+        """Broadcast updated dashboard cards to WebSocket clients."""
+        if not broadcast_manager.active_connections:
+            return
+
+        try:
+            from app.api.routes.pages.dashboard import (
+                build_dashboard_items,
+                get_active_alert_count,
+            )
+            from app.templating import templates
+
+            items = build_dashboard_items(db)
+            alert_count = get_active_alert_count(db)
+
+            # Render each card as an OOB swap fragment
+            fragments = []
+            for item in items:
+                html = templates.get_template("dashboard/_card.html").render(
+                    slug=item["slug"],
+                    name=item["name"],
+                    weather=item["weather"],
+                    alert_count=item["alert_count"],
+                    enabled=item["enabled"],
+                    oob=True,
+                )
+                fragments.append(html)
+
+            # Add alert badge OOB update
+            badge_html = templates.get_template("_alert_badge.html").render(
+                alert_count=alert_count,
+            )
+            fragments.append(badge_html)
+
+            message = "\n".join(fragments)
+            await broadcast_manager.broadcast(message)
+
+            logger.debug(
+                "Broadcast weather updates to WebSocket clients",
+                extra={"card_count": len(items)},
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to broadcast WebSocket updates: {e}",
+                extra={"error": str(e)},
             )
 
     def collect_all_sync(self) -> dict[str, int]:
