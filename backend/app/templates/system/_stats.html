@@ -1,0 +1,14 @@
+<div class="stat-grid" id="system-stats" hx-swap-oob="{{ 'true' if oob is defined and oob else 'false' }}">
+    <div class="stat-card">
+        <div class="value">{{ location_count }}</div>
+        <div class="label">Locations</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ backend_count }}</div>
+        <div class="label">Output Backends</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ active_alert_count }}</div>
+        <div class="label">Active Alerts</div>
+    </div>
+</div>

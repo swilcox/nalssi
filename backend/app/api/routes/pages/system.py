@@ -19,28 +19,20 @@ from app.templating import templates
 router = APIRouter()
 
 
-@router.get("/system")
-def system_status(request: Request, db: Session = Depends(get_db)):
-    """System status page."""
-    location_count = db.query(func.count(Location.id)).scalar()
-    backend_count = db.query(func.count(OutputBackendConfig.id)).scalar()
-
+def build_system_stats(db: Session) -> dict:
+    """Build system stat counts."""
     now = datetime.now(UTC)
-    active_alert_count = (
-        db.query(func.count(Alert.id)).filter(Alert.expires > now).scalar()
-    )
+    return {
+        "location_count": db.query(func.count(Location.id)).scalar(),
+        "backend_count": db.query(func.count(OutputBackendConfig.id)).scalar(),
+        "active_alert_count": (
+            db.query(func.count(Alert.id)).filter(Alert.expires > now).scalar()
+        ),
+    }
 
-    # Scheduler jobs
-    scheduler_jobs = []
-    try:
-        from app.services.scheduler import get_scheduler
 
-        scheduler = get_scheduler()
-        scheduler_jobs = scheduler.get_jobs()
-    except Exception:
-        pass
-
-    # Last collection per location
+def build_last_collections(db: Session) -> list[dict]:
+    """Build last collection data per location."""
     locations = db.query(Location).order_by(Location.name).all()
     last_collections = []
     for loc in locations:
@@ -67,15 +59,32 @@ def system_status(request: Request, db: Session = Depends(get_db)):
                 ),
             }
         )
+    return last_collections
+
+
+@router.get("/system")
+def system_status(request: Request, db: Session = Depends(get_db)):
+    """System status page."""
+    stats = build_system_stats(db)
+
+    # Scheduler jobs
+    scheduler_jobs = []
+    try:
+        from app.services.scheduler import get_scheduler
+
+        scheduler = get_scheduler()
+        scheduler_jobs = scheduler.get_jobs()
+    except Exception:
+        pass
+
+    last_collections = build_last_collections(db)
 
     return templates.TemplateResponse(
         "system/status.html",
         {
             "request": request,
             "version": settings.APP_VERSION,
-            "location_count": location_count,
-            "backend_count": backend_count,
-            "active_alert_count": active_alert_count,
+            **stats,
             "scheduler_jobs": scheduler_jobs,
             "last_collections": last_collections,
         },

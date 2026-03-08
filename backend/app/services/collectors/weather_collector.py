@@ -278,11 +278,17 @@ class WeatherCollector:
                 build_dashboard_items,
                 get_active_alert_count,
             )
+            from app.api.routes.pages.system import (
+                build_last_collections,
+                build_system_stats,
+            )
             from app.templating import templates
 
             items = build_dashboard_items(db)
             alert_count = get_active_alert_count(db)
             alert_items = build_alert_items(db)
+            system_stats = build_system_stats(db)
+            last_collections = build_last_collections(db)
 
             # Render each weather card as an OOB swap fragment
             fragments = []
@@ -310,11 +316,27 @@ class WeatherCollector:
             )
             fragments.append(alerts_html)
 
+            # Add system stats OOB update
+            stats_html = templates.get_template("system/_stats.html").render(
+                oob=True,
+                **system_stats,
+            )
+            fragments.append(stats_html)
+
+            # Add last collections OOB update
+            collections_html = templates.get_template(
+                "system/_collections.html"
+            ).render(
+                oob=True,
+                last_collections=last_collections,
+            )
+            fragments.append(collections_html)
+
             message = "\n".join(fragments)
             await broadcast_manager.broadcast(message)
 
             logger.debug(
-                "Broadcast weather and alert updates to WebSocket clients",
+                "Broadcast weather, alert, and system updates to WebSocket clients",
                 extra={
                     "card_count": len(items),
                     "alert_count": len(alert_items),

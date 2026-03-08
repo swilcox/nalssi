@@ -1,0 +1,16 @@
+<tbody id="system-collections" hx-swap-oob="{{ 'true' if oob is defined and oob else 'false' }}">
+    {% for item in last_collections %}
+    <tr>
+        <td>{{ item.location_name }}</td>
+        <td>{{ item.timestamp or "Never" }}</td>
+        <td>{{ item.source_api or "-" }}</td>
+        <td>
+            {% if item.temperature is not none %}
+                {{ "%.1f"|format(item.temperature) }}&deg;C / {{ "%.1f"|format(item.temperature_f) }}&deg;F
+            {% else %}
+                -
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
