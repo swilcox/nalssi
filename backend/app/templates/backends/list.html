@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Output Backends - Nalssi{% endblock %}
+{% block content %}
+<h1>Output Backends</h1>
+
+{% include "backends/_add_form.html" %}
+
+<figure>
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Format</th>
+            <th>Connection</th>
+            <th>Test</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="backends-tbody">
+        {% for backend in backends %}
+        {% include "backends/_row.html" %}
+        {% endfor %}
+    </tbody>
+</table>
+</figure>
+
+{% if not backends %}
+<p>No output backends configured yet.</p>
+{% endif %}
+{% endblock %}

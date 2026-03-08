@@ -1,0 +1,56 @@
+<details>
+    <summary role="button" class="outline">Add Location</summary>
+    <form hx-post="/locations"
+          hx-target="#locations-tbody"
+          hx-swap="beforeend"
+          hx-on::after-request="if(event.detail.successful) this.reset()">
+        <div id="add-location-errors"></div>
+        <div class="grid">
+            <label>
+                Name
+                <input type="text" name="name" placeholder="San Francisco, CA" required>
+            </label>
+            <label>
+                Latitude
+                <input type="number" name="latitude" placeholder="37.7749" step="0.0001" min="-90" max="90" required>
+            </label>
+            <label>
+                Longitude
+                <input type="number" name="longitude" placeholder="-122.4194" step="0.0001" min="-180" max="180" required>
+            </label>
+        </div>
+        <div class="grid">
+            <label>
+                Country Code
+                <input type="text" name="country_code" placeholder="US" maxlength="2" required>
+            </label>
+            <label>
+                Timezone
+                <input type="text" name="timezone" placeholder="America/Los_Angeles">
+            </label>
+            <label>
+                Collection Interval (s)
+                <input type="number" name="collection_interval" value="300" min="1" required>
+            </label>
+        </div>
+        <div class="grid">
+            <label>
+                Preferred API
+                <select name="preferred_api">
+                    <option value="">auto</option>
+                    <option value="noaa">noaa</option>
+                    <option value="open-meteo">open-meteo</option>
+                    <option value="openweather">openweather</option>
+                    <option value="weatherapi">weatherapi</option>
+                </select>
+            </label>
+            <label>
+                <input type="hidden" name="enabled" value="off">
+                <input type="checkbox" name="enabled" value="on" checked>
+                Enabled
+            </label>
+            <div></div>
+        </div>
+        <button type="submit">Add Location</button>
+    </form>
+</details>

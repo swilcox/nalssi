@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nalssi-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - nalssi-data:/app/data
+    environment:
+      - APP_NAME=nalssi
+      - APP_VERSION=0.1.0
+      - DATABASE_URL=sqlite:////app/data/nalssi.db
+      - LOG_LEVEL=INFO
+      - DEFAULT_COLLECTION_INTERVAL=300
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  nalssi-data:
+    driver: local

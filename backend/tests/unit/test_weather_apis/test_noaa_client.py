@@ -1,0 +1,218 @@
+"""
+Unit tests for NOAA Weather API client.
+
+Following TDD: Write tests first, then implement.
+"""
+
+import json
+from pathlib import Path
+
+import httpx
+import pytest
+
+from app.services.weather_apis.noaa import NOAAWeatherClient
+
+
+@pytest.fixture
+def noaa_responses():
+    """Load NOAA API response fixtures."""
+    fixtures_path = (
+        Path(__file__).parent.parent.parent / "fixtures" / "noaa_responses.json"
+    )
+    with open(fixtures_path) as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def noaa_client():
+    """Create a NOAA client instance."""
+    return NOAAWeatherClient()
+
+
+@pytest.mark.unit
+def test_noaa_client_initialization(noaa_client):
+    """Test that NOAA client initializes correctly."""
+    assert noaa_client is not None
+    assert noaa_client.base_url == "https://api.weather.gov"
+    assert noaa_client.name == "noaa"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_noaa_get_current_weather_success(
+    noaa_client, noaa_responses, respx_mock
+):
+    """Test successful current weather retrieval from NOAA."""
+    lat, lon = 37.7749, -122.4194
+
+    # Mock the points endpoint
+    respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}").mock(
+        return_value=httpx.Response(200, json=noaa_responses["points_response"])
+    )
+
+    # Mock the stations endpoint
+    respx_mock.get("https://api.weather.gov/gridpoints/MTR/90,112/stations").mock(
+        return_value=httpx.Response(200, json=noaa_responses["stations_response"])
+    )
+
+    # Mock the observation endpoint
+    respx_mock.get("https://api.weather.gov/stations/KSFO/observations/latest").mock(
+        return_value=httpx.Response(200, json=noaa_responses["observation_response"])
+    )
+
+    weather = await noaa_client.get_current_weather(lat, lon)
+
+    assert weather is not None
+    assert weather.temperature == 18.5
+    assert weather.humidity == 65
+    assert weather.wind_speed == 5.5
+    assert weather.wind_direction == 270
+    assert weather.condition_text == "Partly Cloudy"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_noaa_get_current_weather_converts_units(
+    noaa_client, noaa_responses, respx_mock
+):
+    """Test that NOAA client converts units correctly."""
+    lat, lon = 37.7749, -122.4194
+
+    # Mock all required endpoints
+    respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}").mock(
+        return_value=httpx.Response(200, json=noaa_responses["points_response"])
+    )
+    respx_mock.get("https://api.weather.gov/gridpoints/MTR/90,112/stations").mock(
+        return_value=httpx.Response(200, json=noaa_responses["stations_response"])
+    )
+    respx_mock.get("https://api.weather.gov/stations/KSFO/observations/latest").mock(
+        return_value=httpx.Response(200, json=noaa_responses["observation_response"])
+    )
+
+    weather = await noaa_client.get_current_weather(lat, lon)
+
+    # Temperature should be in Celsius (18.5°C)
+    assert weather.temperature == 18.5
+    # Should also provide Fahrenheit conversion (18.5°C = 65.3°F)
+    assert weather.temperature_fahrenheit == pytest.approx(65.3, rel=0.1)
+    # Pressure should be converted from Pa to hPa (101325 Pa = 1013.25 hPa)
+    assert weather.pressure == pytest.approx(1013.25, rel=0.01)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_noaa_get_current_weather_invalid_coordinates(noaa_client):
+    """Test that invalid coordinates raise ValueError."""
+    # Latitude out of range
+    with pytest.raises(ValueError, match="Latitude must be between -90 and 90"):
+        await noaa_client.get_current_weather(100.0, 0.0)
+
+    # Longitude out of range
+    with pytest.raises(ValueError, match="Longitude must be between -180 and 180"):
+        await noaa_client.get_current_weather(0.0, 200.0)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_noaa_get_current_weather_api_error(noaa_client, respx_mock):
+    """Test handling of API errors."""
+    lat, lon = 37.7749, -122.4194
+
+    # Mock API error response
+    respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}").mock(
+        return_value=httpx.Response(500, text="Internal Server Error")
+    )
+
+    with pytest.raises(Exception):  # Should raise an API error
+        await noaa_client.get_current_weather(lat, lon)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_noaa_get_current_weather_timeout(noaa_client, respx_mock):
+    """Test handling of timeouts."""
+    lat, lon = 37.7749, -122.4194
+
+    # Mock timeout
+    respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}").mock(
+        side_effect=httpx.TimeoutException("Request timed out")
+    )
+
+    with pytest.raises(httpx.TimeoutException):
+        await noaa_client.get_current_weather(lat, lon)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_noaa_get_alerts(noaa_client, noaa_responses, respx_mock):
+    """Test retrieving weather alerts from NOAA."""
+    lat, lon = 37.7749, -122.4194
+
+    # Mock the points endpoint to get the zone
+    respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}").mock(
+        return_value=httpx.Response(200, json=noaa_responses["points_response"])
+    )
+
+    # Mock the alerts endpoint
+    respx_mock.get("https://api.weather.gov/alerts/active").mock(
+        return_value=httpx.Response(200, json=noaa_responses["alerts_response"])
+    )
+
+    alerts = await noaa_client.get_alerts(lat, lon)
+
+    assert alerts is not None
+    assert len(alerts) > 0
+    assert alerts[0].event == "High Wind Warning"
+    assert alerts[0].severity == "Severe"
+    assert alerts[0].urgency == "Immediate"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_noaa_get_alerts_no_active_alerts(
+    noaa_client, noaa_responses, respx_mock
+):
+    """Test handling when there are no active alerts."""
+    lat, lon = 37.7749, -122.4194
+
+    respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}").mock(
+        return_value=httpx.Response(200, json=noaa_responses["points_response"])
+    )
+
+    # Mock empty alerts response
+    respx_mock.get("https://api.weather.gov/alerts/active").mock(
+        return_value=httpx.Response(200, json={"features": []})
+    )
+
+    alerts = await noaa_client.get_alerts(lat, lon)
+
+    assert alerts == []
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_noaa_client_sets_user_agent(noaa_client, respx_mock):
+    """Test that client sets proper User-Agent header."""
+    lat, lon = 37.7749, -122.4194
+
+    # Capture the request
+    route = respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}")
+    route.mock(return_value=httpx.Response(404))  # We just want to check headers
+
+    try:
+        await noaa_client.get_current_weather(lat, lon)
+    except Exception:
+        pass  # We expect this to fail, we just want to check the request
+
+    # Verify User-Agent was set
+    assert route.called
+    request = route.calls.last.request
+    assert "User-Agent" in request.headers
+    assert "nalssi" in request.headers["User-Agent"].lower()
+
+
+@pytest.mark.unit
+def test_noaa_client_str_representation(noaa_client):
+    """Test string representation of NOAA client."""
+    str_repr = str(noaa_client)
+    assert "NOAA" in str_repr or "noaa" in str_repr

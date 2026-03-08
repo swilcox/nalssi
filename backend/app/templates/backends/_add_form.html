@@ -1,0 +1,75 @@
+<details>
+    <summary role="button" class="outline">Add Backend</summary>
+    <form hx-post="/backends"
+          hx-target="#backends-tbody"
+          hx-swap="beforeend"
+          hx-on::after-request="if(event.detail.successful) this.reset()">
+        <div id="add-backend-errors"></div>
+        <div class="grid">
+            <label>
+                Name
+                <input type="text" name="name" placeholder="My Redis Backend" required>
+            </label>
+            <label>
+                Backend Type
+                <select name="backend_type" required>
+                    <option value="redis">redis</option>
+                    <option value="influxdb">influxdb</option>
+                    <option value="prometheus">prometheus</option>
+                    <option value="postgresql">postgresql</option>
+                </select>
+            </label>
+            <label>
+                Format
+                <select name="format_type">
+                    {% for value, label in format_types %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <label>
+            Connection Config (JSON)
+            <textarea name="connection_config" rows="3" required placeholder='{"url": "redis://localhost:6379/0"}'></textarea>
+        </label>
+        <div class="grid">
+            <label>
+                Format Config (JSON, optional)
+                <textarea name="format_config" rows="2" placeholder="{}"></textarea>
+            </label>
+            <fieldset>
+                <legend>Location Filter</legend>
+                <select name="filter_mode">
+                    <option value="all">All locations</option>
+                    <option value="include">Include selected</option>
+                    <option value="exclude">Exclude selected</option>
+                </select>
+                {% for loc in locations %}
+                <label>
+                    <input type="checkbox" name="filter_locations" value="{{ loc.slug }}">
+                    {{ loc.name }}
+                </label>
+                {% endfor %}
+                {% if not locations %}
+                <small>No locations configured yet.</small>
+                {% endif %}
+            </fieldset>
+        </div>
+        <div class="grid">
+            <label>
+                Write Timeout (s)
+                <input type="number" name="write_timeout" value="10" min="1">
+            </label>
+            <label>
+                Retry Count
+                <input type="number" name="retry_count" value="1" min="0">
+            </label>
+            <label>
+                <input type="hidden" name="enabled" value="off">
+                <input type="checkbox" name="enabled" value="on" checked>
+                Enabled
+            </label>
+        </div>
+        <button type="submit">Add Backend</button>
+    </form>
+</details>

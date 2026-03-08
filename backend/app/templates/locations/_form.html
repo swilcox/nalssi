@@ -1,0 +1,33 @@
+<tr id="location-{{ location.id }}">
+    <td><input type="text" name="name" value="{{ location.name }}" required></td>
+    <td><input type="number" name="latitude" value="{{ location.latitude }}" step="0.0001" min="-90" max="90" required></td>
+    <td><input type="number" name="longitude" value="{{ location.longitude }}" step="0.0001" min="-180" max="180" required></td>
+    <td><input type="text" name="country_code" value="{{ location.country_code }}" maxlength="2" required style="width:4rem;"></td>
+    <td><input type="text" name="timezone" value="{{ location.timezone or '' }}"></td>
+    <td><input type="number" name="collection_interval" value="{{ location.collection_interval }}" min="1" required style="width:5rem;"></td>
+    <td>
+        <select name="preferred_api">
+            <option value="" {{ 'selected' if not location.preferred_api }}>auto</option>
+            <option value="noaa" {{ 'selected' if location.preferred_api == 'noaa' }}>noaa</option>
+            <option value="open-meteo" {{ 'selected' if location.preferred_api == 'open-meteo' }}>open-meteo</option>
+            <option value="openweather" {{ 'selected' if location.preferred_api == 'openweather' }}>openweather</option>
+            <option value="weatherapi" {{ 'selected' if location.preferred_api == 'weatherapi' }}>weatherapi</option>
+        </select>
+    </td>
+    <td>
+        <input type="hidden" name="enabled" value="off">
+        <input type="checkbox" name="enabled" value="on" {{ 'checked' if location.enabled }}>
+    </td>
+    <td class="actions">
+        {% if error %}<div class="error-message"><small>{{ error }}</small></div>{% endif %}
+        <button class="outline"
+                hx-put="/locations/{{ location.id }}"
+                hx-include="#location-{{ location.id }}"
+                hx-target="#location-{{ location.id }}"
+                hx-swap="outerHTML">Save</button>
+        <button class="outline secondary"
+                hx-get="/locations/{{ location.id }}/row"
+                hx-target="#location-{{ location.id }}"
+                hx-swap="outerHTML">Cancel</button>
+    </td>
+</tr>

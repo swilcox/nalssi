@@ -1,0 +1,27 @@
+<tr id="location-{{ location.id }}">
+    <td>{{ location.name }}</td>
+    <td>{{ "%.4f"|format(location.latitude) }}</td>
+    <td>{{ "%.4f"|format(location.longitude) }}</td>
+    <td>{{ location.country_code }}</td>
+    <td>{{ location.timezone or "-" }}</td>
+    <td>{{ location.collection_interval }}s</td>
+    <td>{{ location.preferred_api or "auto" }}</td>
+    <td>
+        {% if location.enabled %}
+        <span class="badge badge-success">Enabled</span>
+        {% else %}
+        <span class="badge badge-muted">Disabled</span>
+        {% endif %}
+    </td>
+    <td class="actions">
+        <button class="outline secondary"
+                hx-get="/locations/{{ location.id }}/edit"
+                hx-target="#location-{{ location.id }}"
+                hx-swap="outerHTML">Edit</button>
+        <button class="outline secondary"
+                hx-delete="/locations/{{ location.id }}"
+                hx-target="#location-{{ location.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="Delete '{{ location.name }}'?">Delete</button>
+    </td>
+</tr>

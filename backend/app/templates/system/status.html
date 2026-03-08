@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}System Status - Nalssi{% endblock %}
+{% block content %}
+<h1>System Status</h1>
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="value">{{ location_count }}</div>
+        <div class="label">Locations</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ backend_count }}</div>
+        <div class="label">Output Backends</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ active_alert_count }}</div>
+        <div class="label">Active Alerts</div>
+    </div>
+</div>
+
+<h2>Health</h2>
+<table>
+    <tbody>
+        <tr>
+            <td>Status</td>
+            <td><span class="badge badge-success">Healthy</span></td>
+        </tr>
+        <tr>
+            <td>Version</td>
+            <td>{{ version }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Scheduler</h2>
+{% if scheduler_jobs %}
+<table>
+    <thead>
+        <tr>
+            <th>Job</th>
+            <th>Next Run</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for job in scheduler_jobs %}
+        <tr>
+            <td>{{ job.name }}</td>
+            <td>{{ job.next_run_time or "Not scheduled" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No scheduled jobs. Scheduler may be disabled.</p>
+{% endif %}
+
+<h2>Last Collection Per Location</h2>
+{% if last_collections %}
+<table>
+    <thead>
+        <tr>
+            <th>Location</th>
+            <th>Last Data</th>
+            <th>Source</th>
+            <th>Temperature</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in last_collections %}
+        <tr>
+            <td>{{ item.location_name }}</td>
+            <td>{{ item.timestamp or "Never" }}</td>
+            <td>{{ item.source_api or "-" }}</td>
+            <td>
+                {% if item.temperature is not none %}
+                    {{ "%.1f"|format(item.temperature) }}&deg;C / {{ "%.1f"|format(item.temperature_f) }}&deg;F
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No locations configured.</p>
+{% endif %}
+{% endblock %}

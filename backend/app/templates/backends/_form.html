@@ -1,0 +1,63 @@
+<tr id="backend-{{ backend.id }}">
+    <td><input type="text" name="name" value="{{ backend.name }}" required></td>
+    <td>
+        <select name="backend_type" required>
+            <option value="redis" {{ 'selected' if backend.backend_type == 'redis' }}>redis</option>
+            <option value="influxdb" {{ 'selected' if backend.backend_type == 'influxdb' }}>influxdb</option>
+            <option value="prometheus" {{ 'selected' if backend.backend_type == 'prometheus' }}>prometheus</option>
+            <option value="postgresql" {{ 'selected' if backend.backend_type == 'postgresql' }}>postgresql</option>
+        </select>
+    </td>
+    <td>
+        <input type="hidden" name="enabled" value="off">
+        <input type="checkbox" name="enabled" value="on" {{ 'checked' if backend.enabled }}>
+    </td>
+    <td>
+        <select name="format_type">
+            {% for value, label in format_types %}
+            <option value="{{ value }}" {{ 'selected' if backend.format_type == value }}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td colspan="2">
+        <textarea name="connection_config" rows="2" required>{{ backend.connection_config }}</textarea>
+        <textarea name="format_config" rows="1" placeholder="Format config JSON (optional)">{{ backend.format_config or '' }}</textarea>
+        <fieldset>
+            <legend style="font-size:0.85rem;">Location Filter</legend>
+            <select name="filter_mode" style="margin-bottom:0.25rem;">
+                <option value="all" {{ 'selected' if backend.filter_mode == 'all' }}>All locations</option>
+                <option value="include" {{ 'selected' if backend.filter_mode == 'include' }}>Include selected</option>
+                <option value="exclude" {{ 'selected' if backend.filter_mode == 'exclude' }}>Exclude selected</option>
+            </select>
+            {% for loc in locations %}
+            <label style="font-size:0.85rem;">
+                <input type="checkbox" name="filter_locations" value="{{ loc.slug }}"
+                       {{ 'checked' if loc.slug in backend.filter_slugs }}>
+                {{ loc.name }}
+            </label>
+            {% endfor %}
+        </fieldset>
+        <div class="grid">
+            <label>
+                Timeout
+                <input type="number" name="write_timeout" value="{{ backend.write_timeout }}" min="1">
+            </label>
+            <label>
+                Retries
+                <input type="number" name="retry_count" value="{{ backend.retry_count }}" min="0">
+            </label>
+        </div>
+    </td>
+    <td class="actions">
+        {% if error %}<div class="error-message"><small>{{ error }}</small></div>{% endif %}
+        <button class="outline"
+                hx-put="/backends/{{ backend.id }}"
+                hx-include="#backend-{{ backend.id }}"
+                hx-target="#backend-{{ backend.id }}"
+                hx-swap="outerHTML">Save</button>
+        <button class="outline secondary"
+                hx-get="/backends/{{ backend.id }}/row"
+                hx-target="#backend-{{ backend.id }}"
+                hx-swap="outerHTML">Cancel</button>
+    </td>
+</tr>

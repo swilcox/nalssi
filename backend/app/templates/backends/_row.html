@@ -1,0 +1,38 @@
+<tr id="backend-{{ backend.id }}">
+    <td>{{ backend.name }}</td>
+    <td>{{ backend.backend_type }}</td>
+    <td>
+        {% if backend.enabled %}
+        <span class="badge badge-success">Enabled</span>
+        {% else %}
+        <span class="badge badge-muted">Disabled</span>
+        {% endif %}
+    </td>
+    <td>{{ backend.format_type or "-" }}</td>
+    <td>
+        <code>{{ backend.connection_config[:50] }}{% if backend.connection_config|length > 50 %}...{% endif %}</code>
+        {% if backend.filter_mode != 'all' %}
+        <br><small>{{ backend.filter_mode }}: {{ backend.filter_slugs|join(', ') }}</small>
+        {% endif %}
+    </td>
+    <td>
+        <span id="backend-status-{{ backend.id }}">
+            <button class="outline secondary"
+                    style="padding:0.15rem 0.5rem;font-size:0.8rem;"
+                    hx-post="/backends/{{ backend.id }}/test"
+                    hx-target="#backend-status-{{ backend.id }}"
+                    hx-swap="innerHTML">Test</button>
+        </span>
+    </td>
+    <td class="actions">
+        <button class="outline secondary"
+                hx-get="/backends/{{ backend.id }}/edit"
+                hx-target="#backend-{{ backend.id }}"
+                hx-swap="outerHTML">Edit</button>
+        <button class="outline secondary"
+                hx-delete="/backends/{{ backend.id }}"
+                hx-target="#backend-{{ backend.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="Delete '{{ backend.name }}'?">Delete</button>
+    </td>
+</tr>

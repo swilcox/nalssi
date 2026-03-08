@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Locations - Nalssi{% endblock %}
+{% block content %}
+<h1>Locations</h1>
+
+{% include "locations/_add_form.html" %}
+
+<figure>
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Latitude</th>
+            <th>Longitude</th>
+            <th>Country</th>
+            <th>Timezone</th>
+            <th>Interval</th>
+            <th>API</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="locations-tbody">
+        {% for location in locations %}
+        {% include "locations/_row.html" %}
+        {% endfor %}
+    </tbody>
+</table>
+</figure>
+
+{% if not locations %}
+<p>No locations configured yet.</p>
+{% endif %}
+{% endblock %}

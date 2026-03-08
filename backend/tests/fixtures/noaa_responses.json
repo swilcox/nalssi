@@ -1,0 +1,92 @@
+{
+  "points_response": {
+    "properties": {
+      "forecast": "https://api.weather.gov/gridpoints/MTR/90,112/forecast",
+      "forecastHourly": "https://api.weather.gov/gridpoints/MTR/90,112/forecast/hourly",
+      "observationStations": "https://api.weather.gov/gridpoints/MTR/90,112/stations"
+    }
+  },
+  "stations_response": {
+    "features": [
+      {
+        "id": "https://api.weather.gov/stations/KSFO",
+        "properties": {
+          "stationIdentifier": "KSFO",
+          "name": "San Francisco International Airport"
+        }
+      }
+    ]
+  },
+  "observation_response": {
+    "properties": {
+      "timestamp": "2024-01-15T12:00:00+00:00",
+      "temperature": {
+        "value": 18.5,
+        "unitCode": "wmoUnit:degC"
+      },
+      "dewpoint": {
+        "value": 12.0,
+        "unitCode": "wmoUnit:degC"
+      },
+      "relativeHumidity": {
+        "value": 65,
+        "unitCode": "wmoUnit:percent"
+      },
+      "barometricPressure": {
+        "value": 101325,
+        "unitCode": "wmoUnit:Pa"
+      },
+      "windSpeed": {
+        "value": 5.5,
+        "unitCode": "wmoUnit:m_s-1"
+      },
+      "windDirection": {
+        "value": 270,
+        "unitCode": "wmoUnit:degree_(angle)"
+      },
+      "windGust": {
+        "value": 8.2,
+        "unitCode": "wmoUnit:m_s-1"
+      },
+      "visibility": {
+        "value": 10000,
+        "unitCode": "wmoUnit:m"
+      },
+      "textDescription": "Partly Cloudy",
+      "icon": "https://api.weather.gov/icons/land/day/sct?size=medium",
+      "cloudLayers": [
+        {
+          "base": {
+            "value": 1200,
+            "unitCode": "wmoUnit:m"
+          },
+          "amount": "SCT"
+        }
+      ]
+    }
+  },
+  "alerts_response": {
+    "features": [
+      {
+        "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.123456",
+        "properties": {
+          "id": "urn:oid:2.49.0.1.840.0.123456",
+          "areaDesc": "San Francisco County",
+          "sent": "2024-01-15T10:00:00-08:00",
+          "effective": "2024-01-15T10:00:00-08:00",
+          "expires": "2024-01-15T18:00:00-08:00",
+          "status": "Actual",
+          "messageType": "Alert",
+          "category": "Met",
+          "severity": "Severe",
+          "certainty": "Likely",
+          "urgency": "Immediate",
+          "event": "High Wind Warning",
+          "headline": "High Wind Warning issued January 15 at 10:00AM PST",
+          "description": "Strong winds expected with gusts up to 60 mph.",
+          "instruction": "Secure loose objects and avoid unnecessary travel."
+        }
+      }
+    ]
+  }
+}
