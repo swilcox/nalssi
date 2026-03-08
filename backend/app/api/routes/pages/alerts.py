@@ -16,9 +16,8 @@ from app.templating import templates
 router = APIRouter()
 
 
-@router.get("/alerts")
-def alerts_page(request: Request, db: Session = Depends(get_db)):
-    """Active weather alerts across all locations."""
+def build_alert_items(db: Session) -> list[dict]:
+    """Build the list of active alert items for display."""
     now = datetime.now(UTC)
 
     alerts = (
@@ -59,6 +58,14 @@ def alerts_page(request: Request, db: Session = Depends(get_db)):
                 "source_api": alert.source_api,
             }
         )
+
+    return items
+
+
+@router.get("/alerts")
+def alerts_page(request: Request, db: Session = Depends(get_db)):
+    """Active weather alerts across all locations."""
+    items = build_alert_items(db)
 
     return templates.TemplateResponse(
         "alerts/list.html",

@@ -1,0 +1,14 @@
+<div id="alert-list-container" hx-swap-oob="true">
+{% if not alerts %}
+<p>No active weather alerts.</p>
+{% else %}
+<div class="alert-list">
+    {% for alert in alerts %}
+    {% with oob=false %}
+    {% include "alerts/_card.html" %}
+    {% endwith %}
+    {% endfor %}
+</div>
+{% endif %}
+</div>
+<small id="alert-page-count" hx-swap-oob="true" style="font-size: 1rem; color: var(--pico-muted-color);">({{ alert_count }})</small>

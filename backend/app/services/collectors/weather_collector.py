@@ -268,11 +268,12 @@ class WeatherCollector:
             )
 
     async def _broadcast_updates(self, db: Session) -> None:
-        """Broadcast updated dashboard cards to WebSocket clients."""
+        """Broadcast updated dashboard cards and alerts to WebSocket clients."""
         if not broadcast_manager.active_connections:
             return
 
         try:
+            from app.api.routes.pages.alerts import build_alert_items
             from app.api.routes.pages.dashboard import (
                 build_dashboard_items,
                 get_active_alert_count,
@@ -281,8 +282,9 @@ class WeatherCollector:
 
             items = build_dashboard_items(db)
             alert_count = get_active_alert_count(db)
+            alert_items = build_alert_items(db)
 
-            # Render each card as an OOB swap fragment
+            # Render each weather card as an OOB swap fragment
             fragments = []
             for item in items:
                 html = templates.get_template("dashboard/_card.html").render(
@@ -295,18 +297,28 @@ class WeatherCollector:
                 )
                 fragments.append(html)
 
-            # Add alert badge OOB update
+            # Add nav alert badge OOB update
             badge_html = templates.get_template("_alert_badge.html").render(
                 alert_count=alert_count,
             )
             fragments.append(badge_html)
 
+            # Add alerts list OOB update (for clients on the alerts page)
+            alerts_html = templates.get_template("alerts/_list_content.html").render(
+                alerts=alert_items,
+                alert_count=len(alert_items),
+            )
+            fragments.append(alerts_html)
+
             message = "\n".join(fragments)
             await broadcast_manager.broadcast(message)
 
             logger.debug(
-                "Broadcast weather updates to WebSocket clients",
-                extra={"card_count": len(items)},
+                "Broadcast weather and alert updates to WebSocket clients",
+                extra={
+                    "card_count": len(items),
+                    "alert_count": len(alert_items),
+                },
             )
         except Exception as e:
             logger.warning(

@@ -1,64 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Alerts - Nalssi{% endblock %}
 {% block content %}
-<h1>Active Alerts <small style="font-size: 1rem; color: var(--pico-muted-color);">({{ alert_count }})</small></h1>
+<div hx-ext="ws" ws-connect="/ws/weather">
+<h1>Active Alerts <small id="alert-page-count" style="font-size: 1rem; color: var(--pico-muted-color);">({{ alert_count }})</small></h1>
 
+<div id="alert-list-container">
 {% if not alerts %}
 <p>No active weather alerts.</p>
 {% else %}
 <div class="alert-list">
     {% for alert in alerts %}
-    <article class="alert-card alert-{{ alert.severity | lower }}" style="margin-bottom: 1rem;">
-        <header style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
-            <div>
-                <strong style="font-size: 1.1rem;">{{ alert.event }}</strong>
-                <br>
-                <small style="color: var(--pico-muted-color);">{{ alert.location_name }}</small>
-            </div>
-            <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
-                <span class="badge badge-severity-{{ alert.severity | lower }}">{{ alert.severity }}</span>
-                <span class="badge badge-urgency-{{ alert.urgency | lower }}">{{ alert.urgency }}</span>
-            </div>
-        </header>
-
-        <p style="margin-bottom: 0.5rem;">{{ alert.headline }}</p>
-
-        <div style="font-size: 0.85rem; color: var(--pico-muted-color); margin-bottom: 0.5rem;">
-            <span>Effective: {{ alert.effective }}</span>
-            &middot;
-            <span>Expires: {{ alert.expires }}</span>
-            {% if alert.areas %}
-            &middot;
-            <span>Areas: {{ alert.areas | join(", ") }}</span>
-            {% endif %}
-        </div>
-
-        {% if alert.description or alert.instruction %}
-        <details>
-            <summary><small>Details</small></summary>
-            {% if alert.description %}
-            <div style="margin-top: 0.5rem;">
-                <strong>Description</strong>
-                <p style="white-space: pre-line; font-size: 0.9rem;">{{ alert.description }}</p>
-            </div>
-            {% endif %}
-            {% if alert.instruction %}
-            <div style="margin-top: 0.5rem;">
-                <strong>Instructions</strong>
-                <p style="white-space: pre-line; font-size: 0.9rem;">{{ alert.instruction }}</p>
-            </div>
-            {% endif %}
-        </details>
-        {% endif %}
-
-        <footer style="font-size: 0.8rem; color: var(--pico-muted-color);">
-            Source: {{ alert.source_api }}
-            {% if alert.certainty %}
-            &middot; Certainty: {{ alert.certainty }}
-            {% endif %}
-        </footer>
-    </article>
+    {% with oob=false %}
+    {% include "alerts/_card.html" %}
+    {% endwith %}
     {% endfor %}
 </div>
 {% endif %}
+</div>
+</div>
 {% endblock %}
