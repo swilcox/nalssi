@@ -54,7 +54,6 @@ cd nalssi
 docker-compose up -d
 
 # Or run locally with uv
-cd backend
 uv sync
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
@@ -70,16 +69,77 @@ The API and web UI will be available at `http://localhost:8000`.
 | Open-Meteo | Global | Free (non-commercial) | No |
 | OpenWeatherMap | Global | Free tier | Yes |
 
-## Documentation
+## API Documentation
 
-- **[Backend documentation](backend/README.md)** — detailed architecture, API usage, configuration, and development guide
+Once running, visit:
+- Interactive API docs: `http://localhost:8000/docs`
+- Alternative API docs: `http://localhost:8000/redoc`
+
+## Testing
+
+```bash
+uv run pytest                   # Run all tests
+uv run pytest -m unit           # Unit tests only
+uv run pytest -m integration    # Integration tests only
+uv run pytest --no-cov -q       # Quick run without coverage
+```
+
+## Code Quality
+
+```bash
+uv run ruff check .             # Lint
+uv run ruff format .            # Format
+```
+
+## Configuration
+
+Copy `.env.example` to `.env` and edit as needed. Key settings:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `sqlite:///./nalssi.db` | Database connection |
+| `DEFAULT_COLLECTION_INTERVAL` | `300` | Seconds between collections |
+| `ENABLE_SCHEDULER` | `true` | Enable/disable background collection |
+| `OPENWEATHER_API_KEY` | | Required for OpenWeatherMap |
+| `REDIS_URL` | | Redis backend connection |
+| `INFLUXDB_URL` | | InfluxDB backend connection |
+
+## Project Structure
+
+```
+nalssi/
+├── app/
+│   ├── api/routes/             # REST API + page routes
+│   ├── models/                 # SQLAlchemy models
+│   ├── schemas/                # Pydantic schemas
+│   ├── services/
+│   │   ├── collectors/         # Weather collection
+│   │   ├── weather_apis/       # API clients (NOAA, Open-Meteo, OpenWeather)
+│   │   ├── outputs/            # Output backends (Redis, InfluxDB)
+│   │   ├── broadcast.py        # WebSocket connection manager
+│   │   └── scheduler.py        # APScheduler setup
+│   ├── templates/              # Jinja2 + HTMX templates
+│   ├── config.py               # Pydantic settings
+│   ├── database.py             # SQLAlchemy setup
+│   └── main.py                 # FastAPI application
+├── tests/
+│   ├── unit/                   # Unit tests
+│   ├── integration/            # Integration tests
+│   └── fixtures/               # Test fixtures (API responses)
+├── alembic.ini
+├── docker-compose.yml
+├── Dockerfile
+├── Makefile
+├── pyproject.toml
+└── uv.lock
+```
 
 ## Tech Stack
 
 - **Python 3.11+** / **FastAPI** / **SQLAlchemy** / **Alembic**
 - **APScheduler** for background collection
 - **httpx** for async HTTP
-- **Jinja2 + HTMX** for web UI
+- **Jinja2 + HTMX** for web UI with live WebSocket updates
 - **Docker** for deployment
 - **uv** for dependency management
 - **ruff** for linting/formatting, **pytest** for testing
