@@ -21,7 +21,7 @@ def locations_list(request: Request, db: Session = Depends(get_db)):
     locations = db.query(Location).order_by(Location.name).all()
     return templates.TemplateResponse(
         "locations/list.html",
-        {"request": request, "locations": locations},
+        {"request": request, "locations": locations, "nav_active": "locations"},
     )
 
 

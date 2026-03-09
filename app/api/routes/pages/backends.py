@@ -98,7 +98,7 @@ def backends_list(request: Request, db: Session = Depends(get_db)):
     backends = [_backend_display(c) for c in configs]
     return templates.TemplateResponse(
         "backends/list.html",
-        {"request": request, "backends": backends, **_common_context(db)},
+        {"request": request, "backends": backends, **_common_context(db), "nav_active": "backends"},
     )
 
 

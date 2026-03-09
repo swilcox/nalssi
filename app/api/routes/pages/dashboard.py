@@ -105,5 +105,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "request": request,
             "locations": items,
             "nav_alert_count": nav_alert_count,
+            "nav_active": "dashboard",
         },
     )

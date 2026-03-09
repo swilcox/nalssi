@@ -93,5 +93,6 @@ def system_status(request: Request, db: Session = Depends(get_db)):
             **stats,
             "scheduler_jobs": scheduler_jobs,
             "last_collections": last_collections,
+            "nav_active": "system",
         },
     )

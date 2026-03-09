@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Nalssi{% endblock %}</title>
+    <title>{% block title %}날씨{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-ws@2.0.2/ws.js"></script>
@@ -47,6 +47,48 @@
             z-index: 100;
         }
         nav ul li strong { font-size: 1.2rem; }
+
+        /* Nav links container */
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--pico-muted-border-color);
+            border-radius: 10px;
+            padding: 0.3rem;
+        }
+        .nav-links li {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+        .nav-links li a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.35rem 0.75rem;
+            margin: 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--pico-muted-color);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            box-shadow: none;
+        }
+        .nav-links li a:hover {
+            color: var(--pico-color);
+            background: var(--card-bg);
+        }
+        .nav-links li.active a {
+            color: var(--pico-color);
+            background: var(--card-bg);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            font-weight: 600;
+        }
 
         /* Weather grid */
         .weather-grid {
@@ -235,7 +277,9 @@
             line-height: 1;
             opacity: 0.7;
             transition: opacity 0.2s;
+            color: #333;
         }
+        [data-theme="dark"] .theme-toggle { color: #ddd; }
         .theme-toggle:hover { opacity: 1; }
 
         /* Update animation */
@@ -257,16 +301,16 @@
 <body>
     <nav class="container-fluid">
         <ul>
-            <li><strong><a href="/" class="contrast">Nalssi</a></strong> <span id="ws-status" class="ws-status" title="Live updates"></span></li>
+            <li><strong><a href="/" class="contrast" style="display: inline-flex; align-items: center; gap: 0.4rem;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 64 64" fill="none" style="vertical-align: middle;"><circle cx="26" cy="30" r="12" fill="#FFB800"/><circle cx="26" cy="30" r="9" fill="#FFD966"/><line x1="26" y1="14" x2="26" y2="10" stroke="#FFB800" stroke-width="2.5" stroke-linecap="round"/><line x1="26" y1="50" x2="26" y2="46" stroke="#FFB800" stroke-width="2.5" stroke-linecap="round"/><line x1="10" y1="30" x2="14" y2="30" stroke="#FFB800" stroke-width="2.5" stroke-linecap="round"/><line x1="38" y1="30" x2="42" y2="30" stroke="#FFB800" stroke-width="2.5" stroke-linecap="round"/><line x1="14.7" y1="18.7" x2="17.5" y2="21.5" stroke="#FFB800" stroke-width="2.5" stroke-linecap="round"/><line x1="34.5" y1="38.5" x2="37.3" y2="41.3" stroke="#FFB800" stroke-width="2.5" stroke-linecap="round"/><line x1="14.7" y1="41.3" x2="17.5" y2="38.5" stroke="#FFB800" stroke-width="2.5" stroke-linecap="round"/><line x1="34.5" y1="21.5" x2="37.3" y2="18.7" stroke="#FFB800" stroke-width="2.5" stroke-linecap="round"/><path d="M36 38c0-5.5 4.5-10 10-10 1.2 0 2.3.2 3.4.6C48.2 24.8 44.4 22 40 22c-1.4 0-2.7.2-4 .7" fill="none"/><ellipse cx="44" cy="42" rx="14" ry="9" fill="#B0BEC5" opacity="0.85"/><ellipse cx="38" cy="40" rx="8" ry="6.5" fill="#CFD8DC" opacity="0.9"/><ellipse cx="50" cy="41" rx="7" ry="5.5" fill="#CFD8DC" opacity="0.9"/></svg> 날씨</a></strong> <span id="ws-status" class="ws-status" title="Live updates"></span></li>
         </ul>
-        <ul>
-            <li><a href="/">Dashboard</a></li>
-            <li><a href="/alerts">Alerts <span id="nav-alert-count">{% if nav_alert_count is defined and nav_alert_count %}<span class="badge badge-warning" style="font-size: 0.7rem; vertical-align: super;">{{ nav_alert_count }}</span>{% endif %}</span></a></li>
-            <li><a href="/locations">Locations</a></li>
-            <li><a href="/backends">Backends</a></li>
-            <li><a href="/system">System</a></li>
+        <ul class="nav-links">
+            <li{% if nav_active == "dashboard" %} class="active"{% endif %}><a href="/">Dashboard</a></li>
+            <li{% if nav_active == "alerts" %} class="active"{% endif %}><a href="/alerts">Alerts <span id="nav-alert-count">{% if nav_alert_count is defined and nav_alert_count %}<span class="badge badge-warning" style="font-size: 0.7rem; vertical-align: super;">{{ nav_alert_count }}</span>{% endif %}</span></a></li>
+            <li{% if nav_active == "locations" %} class="active"{% endif %}><a href="/locations">Locations</a></li>
+            <li{% if nav_active == "backends" %} class="active"{% endif %}><a href="/backends">Backends</a></li>
+            <li{% if nav_active == "system" %} class="active"{% endif %}><a href="/system">System</a></li>
             <li><button class="theme-toggle" id="theme-toggle" title="Toggle theme" aria-label="Toggle dark/light theme">
-                <span id="theme-icon">&#9790;</span>
+                <span id="theme-icon">&#9680;</span>
             </button></li>
         </ul>
     </nav>
@@ -286,7 +330,7 @@
             var icon = document.getElementById("theme-icon");
             function updateIcon() {
                 var theme = document.documentElement.getAttribute("data-theme");
-                icon.textContent = theme === "dark" ? "\u2600" : "\u263E";
+                icon.textContent = "\u25D0";
             }
             updateIcon();
             toggle.addEventListener("click", function() {

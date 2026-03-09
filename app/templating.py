@@ -44,10 +44,16 @@ _WEATHER_ICONS = [
     ("mostly cloudy", "cloudy"),
     ("few cloud", "partly-cloudy"),
     ("mainly clear", "partly-cloudy"),
+    ("mostly clear", "partly-cloudy"),
+    ("cloudy", "cloudy"),
     # Clear
     ("clear", "clear"),
     ("sunny", "clear"),
     ("fair", "clear"),
+    ("hot", "clear"),
+    ("cold", "clear"),
+    ("windy", "clear"),
+    ("breezy", "clear"),
 ]
 
 
