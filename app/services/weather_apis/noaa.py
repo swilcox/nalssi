@@ -154,7 +154,7 @@ class NOAAWeatherClient(BaseWeatherClient):
         # Parse timestamp
         timestamp_str = props.get("timestamp")
         timestamp = (
-            datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+            datetime.fromisoformat(timestamp_str.replace("Z", "+00:00")).astimezone(UTC)
             if timestamp_str
             else datetime.now(UTC)
         )
@@ -226,9 +226,13 @@ class NOAAWeatherClient(BaseWeatherClient):
         """
         props = feature["properties"]
 
-        # Parse timestamps
-        effective = datetime.fromisoformat(props["effective"].replace("Z", "+00:00"))
-        expires = datetime.fromisoformat(props["expires"].replace("Z", "+00:00"))
+        # Parse timestamps and convert to UTC so SQLite stores correct values
+        effective = datetime.fromisoformat(
+            props["effective"].replace("Z", "+00:00")
+        ).astimezone(UTC)
+        expires = datetime.fromisoformat(
+            props["expires"].replace("Z", "+00:00")
+        ).astimezone(UTC)
 
         # Get areas affected
         areas = [props.get("areaDesc", "Unknown")]
