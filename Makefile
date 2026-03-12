@@ -2,7 +2,7 @@
 
 # Dev server
 dev:
-	uv run uvicorn app.main:app --reload
+	uv run python -m app.server --reload
 
 # Testing
 test:

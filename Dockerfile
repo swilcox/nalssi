@@ -39,7 +39,8 @@ RUN mkdir -p /app/data
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    DATABASE_URL="sqlite:////app/data/nalssi.db"
+    DATABASE_URL="sqlite:////app/data/nalssi.db" \
+    JSON_LOGS=true
 
 # Expose port
 EXPOSE 8000
@@ -54,7 +55,7 @@ set -e\n\
 echo "Running database migrations..."\n\
 uv run alembic upgrade head\n\
 echo "Starting FastAPI application..."\n\
-exec uv run uvicorn app.main:app --host 0.0.0.0 --port 8000\n\
+exec uv run python -m app.server\n\
 ' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Run entrypoint

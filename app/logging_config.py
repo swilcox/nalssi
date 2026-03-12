@@ -67,3 +67,21 @@ def setup_logging(log_level: str = "INFO", json_logs: bool = False) -> None:
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("alembic").setLevel(logging.INFO)
+
+
+def unify_uvicorn_logging() -> None:
+    """
+    Override uvicorn's loggers to use our root handler/formatter.
+
+    Must be called AFTER uvicorn has started (e.g. in the FastAPI lifespan),
+    because uvicorn re-configures its own loggers during startup, overwriting
+    any earlier changes.
+    """
+    root_handler = logging.getLogger().handlers[0] if logging.getLogger().handlers else None
+    if root_handler is None:
+        return
+
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uv_logger = logging.getLogger(name)
+        uv_logger.handlers = [root_handler]
+        uv_logger.propagate = False

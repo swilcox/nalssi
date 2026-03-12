@@ -186,6 +186,25 @@ class WeatherCollector:
                 )
 
                 if existing:
+                    # Track what changed for logging
+                    changes = []
+                    if existing.severity != alert.severity:
+                        changes.append(
+                            f"severity: {existing.severity} -> {alert.severity}"
+                        )
+                    if existing.urgency != alert.urgency:
+                        changes.append(
+                            f"urgency: {existing.urgency} -> {alert.urgency}"
+                        )
+                    if existing.expires != alert.expires:
+                        changes.append(
+                            f"expires: {existing.expires} -> {alert.expires}"
+                        )
+                    if existing.event != alert.event:
+                        changes.append(
+                            f"event: {existing.event} -> {alert.event}"
+                        )
+
                     # Update mutable fields on the existing alert
                     existing.event = alert.event
                     existing.headline = alert.headline
@@ -203,6 +222,30 @@ class WeatherCollector:
                     existing.instruction = alert.instruction
                     existing.fetched_at = datetime.now(UTC)
                     updated_count += 1
+
+                    if changes:
+                        logger.info(
+                            f"Alert updated for {location.name}: "
+                            f"{alert.event} ({alert.alert_id}): "
+                            f"{', '.join(changes)}",
+                            extra={
+                                "location_id": str(location.id),
+                                "alert_id": alert.alert_id,
+                                "event": alert.event,
+                                "severity": alert.severity,
+                                "changes": changes,
+                            },
+                        )
+                    else:
+                        logger.debug(
+                            f"Alert unchanged for {location.name}: "
+                            f"{alert.event} ({alert.alert_id})",
+                            extra={
+                                "location_id": str(location.id),
+                                "alert_id": alert.alert_id,
+                                "event": alert.event,
+                            },
+                        )
                 else:
                     db_alert = Alert(
                         location_id=location.id,
@@ -225,17 +268,31 @@ class WeatherCollector:
                     )
                     db.add(db_alert)
                     new_count += 1
+                    logger.info(
+                        f"New alert for {location.name}: {alert.event} "
+                        f"(severity={alert.severity}, urgency={alert.urgency}, "
+                        f"expires={alert.expires})",
+                        extra={
+                            "location_id": str(location.id),
+                            "alert_id": alert.alert_id,
+                            "event": alert.event,
+                            "severity": alert.severity,
+                            "urgency": alert.urgency,
+                            "expires": str(alert.expires) if alert.expires else None,
+                            "headline": alert.headline,
+                        },
+                    )
 
-            if new_count > 0 or updated_count > 0:
-                logger.info(
-                    f"Alerts for {location.name}: {new_count} new, {updated_count} updated",
-                    extra={
-                        "location_id": str(location.id),
-                        "new_alerts": new_count,
-                        "updated_alerts": updated_count,
-                        "total_fetched": len(alerts),
-                    },
-                )
+            logger.info(
+                f"Alert check for {location.name}: {len(alerts)} fetched, "
+                f"{new_count} new, {updated_count} updated",
+                extra={
+                    "location_id": str(location.id),
+                    "new_alerts": new_count,
+                    "updated_alerts": updated_count,
+                    "total_fetched": len(alerts),
+                },
+            )
         except Exception as e:
             logger.warning(
                 f"Failed to fetch/store alerts for {location.name}: {str(e)}",

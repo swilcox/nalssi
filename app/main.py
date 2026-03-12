@@ -15,7 +15,7 @@ from app.api.routes.pages import dashboard as page_dashboard
 from app.api.routes.pages import locations as page_locations
 from app.api.routes.pages import system as page_system
 from app.config import settings
-from app.logging_config import setup_logging
+from app.logging_config import setup_logging, unify_uvicorn_logging
 from app.services.scheduler import get_scheduler
 
 # Initialize logging
@@ -31,6 +31,9 @@ async def lifespan(app: FastAPI):
 
     Handles startup and shutdown events for the FastAPI application.
     """
+    # Override uvicorn's loggers now that uvicorn has finished its own setup
+    unify_uvicorn_logging()
+
     # Startup
     logger.info(
         "Starting nalssi weather service",
