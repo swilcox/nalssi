@@ -77,14 +77,19 @@
           "expires": "2024-01-15T18:00:00-08:00",
           "status": "Actual",
           "messageType": "Alert",
-          "category": "Met",
+          "category": ["Met"],
           "severity": "Severe",
           "certainty": "Likely",
           "urgency": "Immediate",
           "event": "High Wind Warning",
+          "sender": "w-nws.webmaster@noaa.gov",
+          "senderName": "NWS San Francisco CA",
           "headline": "High Wind Warning issued January 15 at 10:00AM PST",
           "description": "Strong winds expected with gusts up to 60 mph.",
-          "instruction": "Secure loose objects and avoid unnecessary travel."
+          "instruction": "Secure loose objects and avoid unnecessary travel.",
+          "response": ["Prepare"],
+          "onset": "2024-01-15T12:00:00-08:00",
+          "ends": "2024-01-15T20:00:00-08:00"
         }
       }
     ]

@@ -44,6 +44,14 @@ class WeatherAlert:
     areas: list[str]
     instruction: str | None = None
     alert_id: str | None = None
+    certainty: str | None = None  # Observed, Likely, Possible, Unlikely, Unknown
+    category: str | None = None  # Met, Fire, Geo, Health, Env, Transport, etc.
+    response_type: str | None = None  # Shelter, Evacuate, Prepare, Monitor, etc.
+    sender_name: str | None = None  # Issuing NWS office
+    status: str | None = None  # Actual, Exercise, System, Test, Draft
+    message_type: str | None = None  # Alert, Update, Cancel
+    onset: datetime | None = None  # Expected onset of the event
+    ends: datetime | None = None  # Expected end of the event
 
 
 class BaseWeatherClient(ABC):

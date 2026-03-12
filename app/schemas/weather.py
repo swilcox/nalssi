@@ -36,8 +36,16 @@ class WeatherAlertResponse(BaseModel):
     headline: str
     severity: str
     urgency: str
+    certainty: str | None = None
+    category: str | None = None
+    response_type: str | None = None
+    sender_name: str | None = None
+    status: str | None = None
+    message_type: str | None = None
     effective: datetime
     expires: datetime
+    onset: datetime | None = None
+    ends: datetime | None = None
     areas: list[str]
     description: str | None = None
     instruction: str | None = None

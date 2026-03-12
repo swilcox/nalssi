@@ -9,6 +9,12 @@ from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
+# CAP standard values for reference:
+# category: Met, Fire, Geo, Health, Env, Transport, Infra, CBRNE, Other
+# response_type: Shelter, Evacuate, Prepare, Execute, Avoid, Monitor, AllClear, None
+# status: Actual, Exercise, System, Test, Draft
+# message_type: Alert, Update, Cancel, Ack, Error
+
 from app.database import Base
 
 
@@ -57,6 +63,23 @@ class Alert(Base):
     certainty = Column(
         String(50), nullable=True
     )  # Observed, Likely, Possible, Unlikely, Unknown
+
+    # CAP classification fields
+    category = Column(
+        String(50), nullable=True
+    )  # Met, Fire, Geo, Health, Env, Transport, etc.
+    response_type = Column(
+        String(100), nullable=True
+    )  # Shelter, Evacuate, Prepare, Monitor, etc.
+    sender_name = Column(
+        String(255), nullable=True
+    )  # Issuing office (e.g., "NWS Tulsa OK")
+    status = Column(
+        String(50), nullable=True
+    )  # Actual, Exercise, System, Test, Draft
+    message_type = Column(
+        String(50), nullable=True
+    )  # Alert, Update, Cancel
 
     # Time information
     effective = Column(

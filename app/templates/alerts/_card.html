@@ -41,10 +41,31 @@
     </details>
     {% endif %}
 
+    <div style="font-size: 0.85rem; color: var(--pico-muted-color); margin-bottom: 0.5rem;">
+        {% if alert.onset %}
+        <span>Onset: {{ alert.onset }}</span> &middot;
+        {% endif %}
+        {% if alert.ends %}
+        <span>Ends: {{ alert.ends }}</span> &middot;
+        {% endif %}
+        {% if alert.category %}
+        <span>Category: {{ alert.category }}</span> &middot;
+        {% endif %}
+        {% if alert.response_type %}
+        <span>Response: {{ alert.response_type }}</span>
+        {% endif %}
+    </div>
+
     <footer style="font-size: 0.8rem; color: var(--pico-muted-color);">
         Source: {{ alert.source_api }}
+        {% if alert.sender_name %}
+        &middot; {{ alert.sender_name }}
+        {% endif %}
         {% if alert.certainty %}
         &middot; Certainty: {{ alert.certainty }}
+        {% endif %}
+        {% if alert.message_type %}
+        &middot; Type: {{ alert.message_type }}
         {% endif %}
     </footer>
 </article>

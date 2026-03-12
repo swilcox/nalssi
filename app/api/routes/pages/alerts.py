@@ -46,12 +46,23 @@ def build_alert_items(db: Session) -> list[dict]:
                 "severity": alert.severity,
                 "urgency": alert.urgency,
                 "certainty": alert.certainty,
+                "category": alert.category,
+                "response_type": alert.response_type,
+                "sender_name": alert.sender_name,
+                "status": alert.status,
+                "message_type": alert.message_type,
                 "effective": alert.effective.strftime("%Y-%m-%d %H:%M UTC")
                 if alert.effective
                 else "",
                 "expires": alert.expires.strftime("%Y-%m-%d %H:%M UTC")
                 if alert.expires
                 else "",
+                "onset": alert.onset.strftime("%Y-%m-%d %H:%M UTC")
+                if alert.onset
+                else None,
+                "ends": alert.ends.strftime("%Y-%m-%d %H:%M UTC")
+                if alert.ends
+                else None,
                 "areas": areas,
                 "description": alert.description,
                 "instruction": alert.instruction,

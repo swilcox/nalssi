@@ -218,6 +218,8 @@ class NOAAWeatherClient(BaseWeatherClient):
         """
         Parse NOAA alert feature into WeatherAlert.
 
+        NOAA returns alerts in GeoJSON with CAP-derived properties.
+
         Args:
             feature: Alert feature from NOAA API
 
@@ -227,15 +229,27 @@ class NOAAWeatherClient(BaseWeatherClient):
         props = feature["properties"]
 
         # Parse timestamps and convert to UTC so SQLite stores correct values
-        effective = datetime.fromisoformat(
-            props["effective"].replace("Z", "+00:00")
-        ).astimezone(UTC)
-        expires = datetime.fromisoformat(
-            props["expires"].replace("Z", "+00:00")
-        ).astimezone(UTC)
+        effective = self._parse_timestamp(props.get("effective"))
+        expires = self._parse_timestamp(props.get("expires"))
+        onset = self._parse_timestamp(props.get("onset"))
+        ends = self._parse_timestamp(props.get("ends"))
 
         # Get areas affected
         areas = [props.get("areaDesc", "Unknown")]
+
+        # CAP category can be a list in the NOAA response; join if so
+        raw_category = props.get("category")
+        if isinstance(raw_category, list):
+            category = ", ".join(raw_category) if raw_category else None
+        else:
+            category = raw_category
+
+        # response can also be a list
+        raw_response = props.get("response")
+        if isinstance(raw_response, list):
+            response_type = ", ".join(raw_response) if raw_response else None
+        else:
+            response_type = raw_response
 
         return WeatherAlert(
             alert_id=props.get("id"),
@@ -245,10 +259,25 @@ class NOAAWeatherClient(BaseWeatherClient):
             instruction=props.get("instruction"),
             severity=props.get("severity", "Unknown"),
             urgency=props.get("urgency", "Unknown"),
+            certainty=props.get("certainty"),
+            category=category,
+            response_type=response_type,
+            sender_name=props.get("senderName"),
+            status=props.get("status"),
+            message_type=props.get("messageType"),
             effective=effective,
             expires=expires,
+            onset=onset,
+            ends=ends,
             areas=areas,
         )
+
+    @staticmethod
+    def _parse_timestamp(value: str | None) -> datetime | None:
+        """Parse an ISO timestamp string to a UTC datetime, or None."""
+        if not value:
+            return None
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
 
     @staticmethod
     def _get_value(data: dict) -> float | None:

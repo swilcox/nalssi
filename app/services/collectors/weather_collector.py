@@ -210,11 +210,16 @@ class WeatherCollector:
                     existing.headline = alert.headline
                     existing.severity = alert.severity
                     existing.urgency = alert.urgency
-                    existing.certainty = getattr(alert, "certainty", None)
+                    existing.certainty = alert.certainty
+                    existing.category = alert.category
+                    existing.response_type = alert.response_type
+                    existing.sender_name = alert.sender_name
+                    existing.status = alert.status
+                    existing.message_type = alert.message_type
                     existing.effective = alert.effective
                     existing.expires = alert.expires
-                    existing.onset = getattr(alert, "onset", None)
-                    existing.ends = getattr(alert, "ends", None)
+                    existing.onset = alert.onset
+                    existing.ends = alert.ends
                     existing.areas = (
                         json.dumps(alert.areas) if alert.areas else None
                     )
@@ -255,11 +260,16 @@ class WeatherCollector:
                         headline=alert.headline,
                         severity=alert.severity,
                         urgency=alert.urgency,
-                        certainty=getattr(alert, "certainty", None),
+                        certainty=alert.certainty,
+                        category=alert.category,
+                        response_type=alert.response_type,
+                        sender_name=alert.sender_name,
+                        status=alert.status,
+                        message_type=alert.message_type,
                         effective=alert.effective,
                         expires=alert.expires,
-                        onset=getattr(alert, "onset", None),
-                        ends=getattr(alert, "ends", None),
+                        onset=alert.onset,
+                        ends=alert.ends,
                         areas=(
                             json.dumps(alert.areas) if alert.areas else None
                         ),

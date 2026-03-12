@@ -162,9 +162,19 @@ async def test_noaa_get_alerts(noaa_client, noaa_responses, respx_mock):
 
     assert alerts is not None
     assert len(alerts) > 0
-    assert alerts[0].event == "High Wind Warning"
-    assert alerts[0].severity == "Severe"
-    assert alerts[0].urgency == "Immediate"
+
+    alert = alerts[0]
+    assert alert.event == "High Wind Warning"
+    assert alert.severity == "Severe"
+    assert alert.urgency == "Immediate"
+    assert alert.certainty == "Likely"
+    assert alert.category == "Met"
+    assert alert.response_type == "Prepare"
+    assert alert.sender_name == "NWS San Francisco CA"
+    assert alert.status == "Actual"
+    assert alert.message_type == "Alert"
+    assert alert.onset is not None
+    assert alert.ends is not None
 
 
 @pytest.mark.unit
