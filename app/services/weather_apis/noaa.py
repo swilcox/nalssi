@@ -9,8 +9,11 @@ from datetime import UTC, datetime
 import httpx
 
 from app.config import settings
+import re
+
 from app.services.weather_apis.base import (
     BaseWeatherClient,
+    ForecastPeriod,
     WeatherAlert,
     WeatherData,
 )
@@ -271,6 +274,147 @@ class NOAAWeatherClient(BaseWeatherClient):
             ends=ends,
             areas=areas,
         )
+
+    async def get_forecast(
+        self, latitude: float, longitude: float
+    ) -> list[ForecastPeriod]:
+        """
+        Get forecast periods from NOAA.
+
+        Fetches the 12-hour day/night forecast periods (typically 14 periods
+        covering 7 days).
+
+        Args:
+            latitude: Latitude coordinate
+            longitude: Longitude coordinate
+
+        Returns:
+            List of ForecastPeriod objects
+        """
+        self.validate_coordinates(latitude, longitude)
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            # Step 1: Get gridpoint data to find the forecast URL
+            points_url = f"{self.base_url}/points/{latitude},{longitude}"
+            response = await client.get(points_url, headers=self._get_headers())
+            response.raise_for_status()
+            points_data = response.json()
+
+            # Step 2: Fetch the forecast
+            forecast_url = points_data["properties"]["forecast"]
+            response = await client.get(forecast_url, headers=self._get_headers())
+            response.raise_for_status()
+            forecast_data = response.json()
+
+            # Parse each period
+            periods = []
+            for period in forecast_data.get("properties", {}).get("periods", []):
+                periods.append(self._parse_forecast_period(period))
+
+            return periods
+
+    def _parse_forecast_period(self, period: dict) -> ForecastPeriod:
+        """
+        Parse a NOAA forecast period into a ForecastPeriod.
+
+        Args:
+            period: A single period from the NOAA forecast response
+
+        Returns:
+            ForecastPeriod object
+        """
+        start_time = self._parse_timestamp(period.get("startTime"))
+        end_time = self._parse_timestamp(period.get("endTime"))
+
+        # NOAA gives temperature as a plain integer with a separate unit field
+        temp_value = period.get("temperature")
+        temp_unit = period.get("temperatureUnit", "F")
+        if temp_value is not None:
+            if temp_unit == "F":
+                temp_f = float(temp_value)
+                temp_c = (temp_f - 32) * 5 / 9
+            else:
+                temp_c = float(temp_value)
+                temp_f = self._celsius_to_fahrenheit(temp_c)
+        else:
+            temp_c = None
+            temp_f = None
+
+        # Wind speed is a string like "5 to 10 mph" — extract the higher value
+        wind_speed = self._parse_wind_speed(period.get("windSpeed"))
+        wind_gust = self._parse_wind_speed(period.get("windGust"))
+
+        # Wind direction is a compass string like "NNW"
+        wind_direction = self._compass_to_degrees(period.get("windDirection"))
+
+        # Precipitation probability is in a {unitCode, value} wrapper
+        precip_prob = self._get_value(period.get("probabilityOfPrecipitation"))
+        if precip_prob is not None:
+            precip_prob = int(precip_prob)
+
+        # Humidity (hourly endpoint has it, regular forecast may not)
+        humidity = self._get_value(period.get("relativeHumidity"))
+        if humidity is not None:
+            humidity = int(humidity)
+
+        return ForecastPeriod(
+            start_time=start_time,
+            end_time=end_time,
+            temperature=temp_c,
+            temperature_fahrenheit=temp_f,
+            is_daytime=period.get("isDaytime"),
+            condition_text=period.get("shortForecast"),
+            detailed_forecast=period.get("detailedForecast") or None,
+            wind_speed=wind_speed,
+            wind_direction=wind_direction,
+            wind_gust=wind_gust,
+            precipitation_probability=precip_prob,
+            humidity=humidity,
+            raw_data=period,
+        )
+
+    @staticmethod
+    def _parse_wind_speed(value: str | None) -> float | None:
+        """
+        Parse NOAA wind speed string to m/s.
+
+        Handles formats like "5 mph", "5 to 10 mph", "10 to 20 km/h".
+        Returns the highest value converted to m/s.
+        """
+        if not value:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+
+        numbers = re.findall(r"[\d.]+", str(value))
+        if not numbers:
+            return None
+
+        # Take the highest number
+        speed = max(float(n) for n in numbers)
+
+        # Convert to m/s
+        value_lower = str(value).lower()
+        if "mph" in value_lower:
+            return round(speed * 0.44704, 1)  # mph to m/s
+        elif "km/h" in value_lower or "kmh" in value_lower:
+            return round(speed / 3.6, 1)  # km/h to m/s
+        else:
+            # Assume m/s if no unit
+            return speed
+
+    @staticmethod
+    def _compass_to_degrees(direction: str | None) -> int | None:
+        """Convert a 16-point compass direction to degrees."""
+        if not direction:
+            return None
+        compass = {
+            "N": 0, "NNE": 22, "NE": 45, "ENE": 67,
+            "E": 90, "ESE": 112, "SE": 135, "SSE": 157,
+            "S": 180, "SSW": 202, "SW": 225, "WSW": 247,
+            "W": 270, "WNW": 292, "NW": 315, "NNW": 337,
+        }
+        return compass.get(direction.upper())
 
     @staticmethod
     def _parse_timestamp(value: str | None) -> datetime | None:

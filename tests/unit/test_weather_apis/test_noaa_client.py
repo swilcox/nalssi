@@ -222,6 +222,115 @@ async def test_noaa_client_sets_user_agent(noaa_client, respx_mock):
 
 
 @pytest.mark.unit
+@pytest.mark.asyncio
+async def test_noaa_get_forecast(noaa_client, noaa_responses, respx_mock):
+    """Test retrieving forecast periods from NOAA."""
+    lat, lon = 37.7749, -122.4194
+
+    # Mock the points endpoint
+    respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}").mock(
+        return_value=httpx.Response(200, json=noaa_responses["points_response"])
+    )
+
+    # Mock the forecast endpoint
+    respx_mock.get(
+        "https://api.weather.gov/gridpoints/MTR/90,112/forecast"
+    ).mock(
+        return_value=httpx.Response(200, json=noaa_responses["forecast_response"])
+    )
+
+    periods = await noaa_client.get_forecast(lat, lon)
+
+    assert len(periods) == 3
+
+    # First period: daytime
+    day = periods[0]
+    assert day.is_daytime is True
+    assert day.condition_text == "Partly Cloudy"
+    assert day.precipitation_probability == 20
+    assert day.start_time is not None
+    assert day.end_time is not None
+    assert day.detailed_forecast is not None
+    assert "62" in day.detailed_forecast
+
+    # Temperature: 62°F should convert to ~16.7°C
+    assert day.temperature == pytest.approx(16.67, abs=0.1)
+    assert day.temperature_fahrenheit == pytest.approx(62.0)
+
+    # Wind: "5 to 10 mph" -> take max (10 mph) -> ~4.5 m/s
+    assert day.wind_speed is not None
+    assert day.wind_speed == pytest.approx(4.5, abs=0.1)
+
+    # Wind direction: "NW" -> 315 degrees
+    assert day.wind_direction == 315
+
+    # Second period: nighttime
+    night = periods[1]
+    assert night.is_daytime is False
+    assert night.condition_text == "Chance Rain"
+    assert night.precipitation_probability == 60
+    # 45°F -> ~7.2°C
+    assert night.temperature == pytest.approx(7.22, abs=0.1)
+    # Wind direction: "S" -> 180 degrees
+    assert night.wind_direction == 180
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_noaa_get_forecast_empty(noaa_client, noaa_responses, respx_mock):
+    """Test handling of empty forecast response."""
+    lat, lon = 37.7749, -122.4194
+
+    respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}").mock(
+        return_value=httpx.Response(200, json=noaa_responses["points_response"])
+    )
+    respx_mock.get(
+        "https://api.weather.gov/gridpoints/MTR/90,112/forecast"
+    ).mock(
+        return_value=httpx.Response(
+            200, json={"properties": {"periods": []}}
+        )
+    )
+
+    periods = await noaa_client.get_forecast(lat, lon)
+    assert periods == []
+
+
+@pytest.mark.unit
+def test_noaa_parse_wind_speed():
+    """Test wind speed string parsing."""
+    from app.services.weather_apis.noaa import NOAAWeatherClient
+
+    parse = NOAAWeatherClient._parse_wind_speed
+
+    # "5 to 10 mph" -> max is 10 mph -> ~4.5 m/s
+    assert parse("5 to 10 mph") == pytest.approx(4.5, abs=0.1)
+    # "10 mph" -> 10 mph -> ~4.5 m/s
+    assert parse("10 mph") == pytest.approx(4.5, abs=0.1)
+    # "15 to 20 mph" -> max is 20 mph -> ~8.9 m/s
+    assert parse("15 to 20 mph") == pytest.approx(8.9, abs=0.1)
+    # None
+    assert parse(None) is None
+    # Empty string
+    assert parse("") is None
+
+
+@pytest.mark.unit
+def test_noaa_compass_to_degrees():
+    """Test compass direction to degrees conversion."""
+    from app.services.weather_apis.noaa import NOAAWeatherClient
+
+    convert = NOAAWeatherClient._compass_to_degrees
+
+    assert convert("N") == 0
+    assert convert("NW") == 315
+    assert convert("S") == 180
+    assert convert("SSW") == 202
+    assert convert("E") == 90
+    assert convert(None) is None
+
+
+@pytest.mark.unit
 def test_noaa_client_str_representation(noaa_client):
     """Test string representation of NOAA client."""
     str_repr = str(noaa_client)

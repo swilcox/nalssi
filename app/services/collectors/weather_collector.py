@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models.alert import Alert
+from app.models.forecast import Forecast
 from app.models.location import Location
 from app.models.weather import WeatherData
 from app.services.broadcast import manager as broadcast_manager
@@ -312,6 +313,98 @@ class WeatherCollector:
                 },
             )
             # Don't fail the whole collection if alerts fail
+
+        # Fetch and store forecast periods
+        try:
+            forecast_periods = await client.get_forecast(
+                location.latitude, location.longitude
+            )
+            new_forecasts = 0
+            updated_forecasts = 0
+
+            for period in forecast_periods:
+                # Upsert by (location_id, source_api, start_time)
+                existing = (
+                    db.query(Forecast)
+                    .filter(
+                        Forecast.location_id == location.id,
+                        Forecast.source_api == client.name,
+                        Forecast.start_time == period.start_time,
+                    )
+                    .first()
+                )
+
+                if existing:
+                    existing.end_time = period.end_time
+                    existing.temperature = period.temperature
+                    existing.temperature_fahrenheit = period.temperature_fahrenheit
+                    existing.temp_low = period.temp_low
+                    existing.temp_low_fahrenheit = period.temp_low_fahrenheit
+                    existing.feels_like = period.feels_like
+                    existing.humidity = period.humidity
+                    existing.pressure = period.pressure
+                    existing.wind_speed = period.wind_speed
+                    existing.wind_direction = period.wind_direction
+                    existing.wind_gust = period.wind_gust
+                    existing.precipitation_probability = period.precipitation_probability
+                    existing.precipitation_amount = period.precipitation_amount
+                    existing.cloud_cover = period.cloud_cover
+                    existing.visibility = period.visibility
+                    existing.uv_index = period.uv_index
+                    existing.condition_text = period.condition_text
+                    existing.condition_code = period.condition_code
+                    existing.is_daytime = period.is_daytime
+                    existing.detailed_forecast = period.detailed_forecast
+                    existing.fetched_at = datetime.now(UTC)
+                    updated_forecasts += 1
+                else:
+                    db_forecast = Forecast(
+                        location_id=location.id,
+                        source_api=client.name,
+                        start_time=period.start_time,
+                        end_time=period.end_time,
+                        temperature=period.temperature,
+                        temperature_fahrenheit=period.temperature_fahrenheit,
+                        temp_low=period.temp_low,
+                        temp_low_fahrenheit=period.temp_low_fahrenheit,
+                        feels_like=period.feels_like,
+                        humidity=period.humidity,
+                        pressure=period.pressure,
+                        wind_speed=period.wind_speed,
+                        wind_direction=period.wind_direction,
+                        wind_gust=period.wind_gust,
+                        precipitation_probability=period.precipitation_probability,
+                        precipitation_amount=period.precipitation_amount,
+                        cloud_cover=period.cloud_cover,
+                        visibility=period.visibility,
+                        uv_index=period.uv_index,
+                        condition_text=period.condition_text,
+                        condition_code=period.condition_code,
+                        is_daytime=period.is_daytime,
+                        detailed_forecast=period.detailed_forecast,
+                    )
+                    db.add(db_forecast)
+                    new_forecasts += 1
+
+            logger.info(
+                f"Forecast for {location.name}: {len(forecast_periods)} periods, "
+                f"{new_forecasts} new, {updated_forecasts} updated",
+                extra={
+                    "location_id": str(location.id),
+                    "total_periods": len(forecast_periods),
+                    "new_forecasts": new_forecasts,
+                    "updated_forecasts": updated_forecasts,
+                },
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch/store forecast for {location.name}: {str(e)}",
+                extra={
+                    "location_id": str(location.id),
+                    "error": str(e),
+                },
+            )
+            # Don't fail the whole collection if forecasts fail
 
         logger.info(
             f"Weather data stored for {location.name}",

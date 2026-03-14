@@ -305,6 +305,7 @@
         </ul>
         <ul class="nav-links">
             <li{% if nav_active == "dashboard" %} class="active"{% endif %}><a href="/">Dashboard</a></li>
+            <li{% if nav_active == "forecast" %} class="active"{% endif %}><a href="/forecast">Forecast</a></li>
             <li{% if nav_active == "alerts" %} class="active"{% endif %}><a href="/alerts">Alerts <span id="nav-alert-count">{% if nav_alert_count is defined and nav_alert_count %}<span class="badge badge-warning" style="font-size: 0.7rem; vertical-align: super;">{{ nav_alert_count }}</span>{% endif %}</span></a></li>
             <li{% if nav_active == "locations" %} class="active"{% endif %}><a href="/locations">Locations</a></li>
             <li{% if nav_active == "backends" %} class="active"{% endif %}><a href="/backends">Backends</a></li>

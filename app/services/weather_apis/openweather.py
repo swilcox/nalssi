@@ -10,7 +10,12 @@ from datetime import UTC, datetime
 import httpx
 
 from app.config import settings
-from app.services.weather_apis.base import BaseWeatherClient, WeatherAlert, WeatherData
+from app.services.weather_apis.base import (
+    BaseWeatherClient,
+    ForecastPeriod,
+    WeatherAlert,
+    WeatherData,
+)
 
 
 class OpenWeatherClient(BaseWeatherClient):
@@ -132,6 +137,17 @@ class OpenWeatherClient(BaseWeatherClient):
 
         Returns:
             Empty list (alerts not supported in free tier)
+        """
+        return []
+
+    async def get_forecast(
+        self, latitude: float, longitude: float
+    ) -> list[ForecastPeriod]:
+        """
+        Get forecast. Not yet implemented for OpenWeatherMap.
+
+        Returns:
+            Empty list
         """
         return []
 

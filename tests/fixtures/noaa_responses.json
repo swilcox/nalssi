@@ -93,5 +93,68 @@
         }
       }
     ]
+  },
+  "forecast_response": {
+    "properties": {
+      "periods": [
+        {
+          "number": 1,
+          "name": "Today",
+          "startTime": "2024-01-15T06:00:00-08:00",
+          "endTime": "2024-01-15T18:00:00-08:00",
+          "isDaytime": true,
+          "temperature": 62,
+          "temperatureUnit": "F",
+          "temperatureTrend": null,
+          "probabilityOfPrecipitation": {
+            "unitCode": "wmoUnit:percent",
+            "value": 20
+          },
+          "windSpeed": "5 to 10 mph",
+          "windDirection": "NW",
+          "shortForecast": "Partly Cloudy",
+          "detailedForecast": "Partly cloudy, with a high near 62. Northwest wind 5 to 10 mph.",
+          "icon": "https://api.weather.gov/icons/land/day/sct?size=medium"
+        },
+        {
+          "number": 2,
+          "name": "Tonight",
+          "startTime": "2024-01-15T18:00:00-08:00",
+          "endTime": "2024-01-16T06:00:00-08:00",
+          "isDaytime": false,
+          "temperature": 45,
+          "temperatureUnit": "F",
+          "temperatureTrend": null,
+          "probabilityOfPrecipitation": {
+            "unitCode": "wmoUnit:percent",
+            "value": 60
+          },
+          "windSpeed": "10 mph",
+          "windDirection": "S",
+          "shortForecast": "Chance Rain",
+          "detailedForecast": "A chance of rain after 10pm. Mostly cloudy, with a low around 45. South wind around 10 mph. Chance of precipitation is 60%.",
+          "icon": "https://api.weather.gov/icons/land/night/rain_showers,60?size=medium"
+        },
+        {
+          "number": 3,
+          "name": "Wednesday",
+          "startTime": "2024-01-16T06:00:00-08:00",
+          "endTime": "2024-01-16T18:00:00-08:00",
+          "isDaytime": true,
+          "temperature": 58,
+          "temperatureUnit": "F",
+          "temperatureTrend": null,
+          "probabilityOfPrecipitation": {
+            "unitCode": "wmoUnit:percent",
+            "value": 80
+          },
+          "windSpeed": "15 to 20 mph",
+          "windDirection": "SSW",
+          "shortForecast": "Rain",
+          "detailedForecast": "Rain. Mostly cloudy, with a high near 58. South southwest wind 15 to 20 mph. Chance of precipitation is 80%. New rainfall amounts between a quarter and half of an inch possible.",
+          "icon": "https://api.weather.gov/icons/land/day/rain,80?size=medium"
+        }
+      ]
+    }
   }
 }

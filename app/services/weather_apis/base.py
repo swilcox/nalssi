@@ -54,6 +54,34 @@ class WeatherAlert:
     ends: datetime | None = None  # Expected end of the event
 
 
+@dataclass
+class ForecastPeriod:
+    """Normalized forecast period — a time block with predicted conditions."""
+
+    start_time: datetime
+    end_time: datetime
+    temperature: float | None = None  # Celsius
+    temperature_fahrenheit: float | None = None
+    temp_low: float | None = None  # Celsius (for daily periods)
+    temp_low_fahrenheit: float | None = None
+    feels_like: float | None = None  # Celsius
+    humidity: int | None = None  # percentage
+    pressure: float | None = None  # hPa
+    wind_speed: float | None = None  # m/s
+    wind_direction: int | None = None  # degrees
+    wind_gust: float | None = None  # m/s
+    precipitation_probability: int | None = None  # percentage
+    precipitation_amount: float | None = None  # mm
+    cloud_cover: int | None = None  # percentage
+    visibility: int | None = None  # meters
+    uv_index: float | None = None
+    condition_text: str | None = None  # e.g. "Partly Cloudy"
+    condition_code: str | None = None  # standardized code or WMO code
+    is_daytime: bool | None = None
+    detailed_forecast: str | None = None  # NOAA narrative paragraph
+    raw_data: dict | None = None
+
+
 class BaseWeatherClient(ABC):
     """Abstract base class for weather API clients."""
 
@@ -103,6 +131,22 @@ class BaseWeatherClient(ABC):
         Raises:
             ValueError: If coordinates are invalid
             Exception: If API request fails
+        """
+        pass
+
+    @abstractmethod
+    async def get_forecast(
+        self, latitude: float, longitude: float
+    ) -> list[ForecastPeriod]:
+        """
+        Get forecast periods for a location.
+
+        Args:
+            latitude: Latitude coordinate (-90 to 90)
+            longitude: Longitude coordinate (-180 to 180)
+
+        Returns:
+            List of ForecastPeriod objects ordered by start_time
         """
         pass
 

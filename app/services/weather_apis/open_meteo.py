@@ -10,7 +10,12 @@ from datetime import UTC, datetime
 import httpx
 
 from app.config import settings
-from app.services.weather_apis.base import BaseWeatherClient, WeatherAlert, WeatherData
+from app.services.weather_apis.base import (
+    BaseWeatherClient,
+    ForecastPeriod,
+    WeatherAlert,
+    WeatherData,
+)
 
 # WMO Weather interpretation codes (WW)
 # https://open-meteo.com/en/docs#weathervariables
@@ -167,6 +172,17 @@ class OpenMeteoClient(BaseWeatherClient):
 
         Returns:
             Empty list (alerts not supported)
+        """
+        return []
+
+    async def get_forecast(
+        self, latitude: float, longitude: float
+    ) -> list[ForecastPeriod]:
+        """
+        Get forecast. Not yet implemented for Open-Meteo.
+
+        Returns:
+            Empty list
         """
         return []
 

@@ -72,6 +72,9 @@ class Location(Base):
     alerts = relationship(
         "Alert", back_populates="location", cascade="all, delete-orphan"
     )
+    forecasts = relationship(
+        "Forecast", back_populates="location", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Location(id={self.id}, name='{self.name}')>"

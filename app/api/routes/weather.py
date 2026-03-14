@@ -11,7 +11,12 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.models.location import Location
-from app.schemas.weather import CurrentWeatherResponse, WeatherAlertResponse
+from app.schemas.weather import (
+    CurrentWeatherResponse,
+    ForecastPeriodResponse,
+    ForecastResponse,
+    WeatherAlertResponse,
+)
 from app.services.weather_apis.noaa import NOAAWeatherClient
 
 router = APIRouter()
@@ -325,3 +330,84 @@ async def get_alerts(
         )
         for alert in cached_alerts
     ]
+
+
+@router.get(
+    "/locations/{location_id}/weather/forecast",
+    response_model=ForecastResponse,
+)
+async def get_forecast(
+    location_id: UUID, db: Session = Depends(get_db)
+):
+    """
+    Get weather forecast for a location.
+
+    Returns cached forecast periods from the database, ordered by start time.
+    Only returns future periods (start_time >= now).
+
+    Args:
+        location_id: Location UUID
+        db: Database session
+
+    Returns:
+        Forecast with list of periods
+    """
+    from datetime import UTC, datetime
+
+    from app.models.forecast import Forecast
+
+    location = db.query(Location).filter(Location.id == location_id).first()
+    if not location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location {location_id} not found",
+        )
+
+    now = datetime.now(UTC)
+
+    forecasts = (
+        db.query(Forecast)
+        .filter(
+            Forecast.location_id == location_id,
+            Forecast.end_time > now,
+        )
+        .order_by(Forecast.start_time)
+        .all()
+    )
+
+    periods = [
+        ForecastPeriodResponse(
+            start_time=f.start_time,
+            end_time=f.end_time,
+            temperature=f.temperature,
+            temperature_fahrenheit=f.temperature_fahrenheit,
+            temp_low=f.temp_low,
+            temp_low_fahrenheit=f.temp_low_fahrenheit,
+            feels_like=f.feels_like,
+            humidity=f.humidity,
+            pressure=f.pressure,
+            wind_speed=f.wind_speed,
+            wind_direction=f.wind_direction,
+            wind_gust=f.wind_gust,
+            precipitation_probability=f.precipitation_probability,
+            precipitation_amount=f.precipitation_amount,
+            cloud_cover=f.cloud_cover,
+            visibility=f.visibility,
+            uv_index=f.uv_index,
+            condition_text=f.condition_text,
+            condition_code=f.condition_code,
+            is_daytime=f.is_daytime,
+            detailed_forecast=f.detailed_forecast,
+        )
+        for f in forecasts
+    ]
+
+    # Determine source_api from first period, or default
+    source_api = forecasts[0].source_api if forecasts else "unknown"
+
+    return ForecastResponse(
+        location_id=location.id,
+        location_name=location.name,
+        source_api=source_api,
+        periods=periods,
+    )

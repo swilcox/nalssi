@@ -1,0 +1,20 @@
+<div hx-ext="ws" ws-connect="/ws/weather">
+<h1>Forecast</h1>
+
+{% if not forecast_locations %}
+<p>No forecast data available. Forecasts will appear after the next collection cycle.</p>
+{% else %}
+{% for loc in forecast_locations %}
+<section style="margin-bottom: 2rem;">
+    <h2 style="margin-bottom: 0.25rem;">{{ loc.location_name }}</h2>
+    <small style="color: var(--pico-muted-color);">Source: {{ loc.source_api }}</small>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem;">
+        {% for period in loc.periods %}
+        {% include "forecast/_period_card.html" %}
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+{% endif %}
+</div>
