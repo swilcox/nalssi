@@ -33,20 +33,19 @@ COPY alembic.ini .
 COPY pyproject.toml .
 COPY uv.lock .
 
-# Create directory for database
+# Create directory for data (logs, etc.)
 RUN mkdir -p /app/data
 
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    DATABASE_URL="sqlite:////app/data/nalssi.db" \
     JSON_LOGS=true
 
 # Expose port
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import httpx; httpx.get('http://localhost:8000/health')" || exit 1
 
 # Create entrypoint script
