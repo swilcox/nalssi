@@ -154,6 +154,74 @@ def test_open_meteo_client_str_representation(open_meteo_client):
 
 
 @pytest.mark.unit
+@pytest.mark.asyncio
+async def test_open_meteo_get_forecast_success(
+    open_meteo_client, open_meteo_responses, respx_mock
+):
+    """Test successful daily forecast retrieval from Open-Meteo."""
+    lat, lon = 51.5074, -0.1278
+
+    respx_mock.get("https://api.open-meteo.com/v1/forecast").mock(
+        return_value=httpx.Response(
+            200, json=open_meteo_responses["daily_forecast_response"]
+        )
+    )
+
+    periods = await open_meteo_client.get_forecast(lat, lon)
+
+    assert len(periods) == 3
+
+    # First day: 2024-01-15, rainy (code 61)
+    p0 = periods[0]
+    assert p0.temperature == 9.2
+    assert p0.temperature_fahrenheit == pytest.approx(48.56, rel=0.01)
+    assert p0.temp_low == 3.1
+    assert p0.temp_low_fahrenheit == pytest.approx(37.58, rel=0.01)
+    assert p0.feels_like == 6.5
+    assert p0.humidity == 88
+    assert p0.wind_speed == 6.3
+    assert p0.wind_gust == 12.5
+    assert p0.wind_direction == 210
+    assert p0.precipitation_probability == 80
+    assert p0.precipitation_amount == 2.5
+    assert p0.uv_index == 1.5
+    assert p0.condition_text == "Slight rain"
+    assert p0.condition_code == "61"
+    assert p0.is_daytime is True
+
+    # Second day: 2024-01-16, mainly clear (code 1)
+    p1 = periods[1]
+    assert p1.temperature == 7.5
+    assert p1.temp_low == 1.8
+    assert p1.precipitation_probability == 10
+    assert p1.precipitation_amount == 0.0
+    assert p1.condition_text == "Mainly clear"
+    assert p1.condition_code == "1"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_open_meteo_get_forecast_empty(open_meteo_client, respx_mock):
+    """Test forecast with empty daily data."""
+    lat, lon = 51.5074, -0.1278
+
+    respx_mock.get("https://api.open-meteo.com/v1/forecast").mock(
+        return_value=httpx.Response(200, json={"daily": {"time": []}})
+    )
+
+    periods = await open_meteo_client.get_forecast(lat, lon)
+    assert periods == []
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_open_meteo_get_forecast_invalid_coordinates(open_meteo_client):
+    """Test that forecast with invalid coordinates raises ValueError."""
+    with pytest.raises(ValueError, match="Latitude must be between -90 and 90"):
+        await open_meteo_client.get_forecast(100.0, 0.0)
+
+
+@pytest.mark.unit
 def test_wmo_weather_codes_has_common_codes():
     """Test that WMO code lookup contains expected entries."""
     assert WMO_WEATHER_CODES[0] == "Clear sky"

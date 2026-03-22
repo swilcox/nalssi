@@ -41,8 +41,7 @@ class SchedulerService:
             logger.warning("Scheduler is already running")
             return
 
-        # Add weather collection job
-        # Run at the default collection interval
+        # Add weather collection job (current weather + alerts)
         self.scheduler.add_job(
             func=self.collector.collect_all_sync,
             trigger=IntervalTrigger(seconds=settings.DEFAULT_COLLECTION_INTERVAL),
@@ -51,21 +50,41 @@ class SchedulerService:
             replace_existing=True,
         )
 
+        # Add forecast collection job (separate, longer interval)
+        self.scheduler.add_job(
+            func=self.collector.collect_all_forecasts_sync,
+            trigger=IntervalTrigger(seconds=settings.FORECAST_COLLECTION_INTERVAL),
+            id="forecast_collection",
+            name="Collect forecast data for all locations",
+            replace_existing=True,
+        )
+
         self.scheduler.start()
         logger.info(
-            "Scheduler started with weather collection interval",
+            "Scheduler started",
             extra={
-                "collection_interval_seconds": settings.DEFAULT_COLLECTION_INTERVAL,
+                "weather_interval_seconds": settings.DEFAULT_COLLECTION_INTERVAL,
+                "forecast_interval_seconds": settings.FORECAST_COLLECTION_INTERVAL,
             },
         )
 
-        # Optionally run first collection immediately
+        # Run first collection immediately
         logger.info("Running initial weather collection")
         try:
             self.collector.collect_all_sync()
         except Exception as e:
             logger.error(
                 "Initial weather collection failed",
+                extra={"error": str(e)},
+                exc_info=True,
+            )
+
+        logger.info("Running initial forecast collection")
+        try:
+            self.collector.collect_all_forecasts_sync()
+        except Exception as e:
+            logger.error(
+                "Initial forecast collection failed",
                 extra={"error": str(e)},
                 exc_info=True,
             )

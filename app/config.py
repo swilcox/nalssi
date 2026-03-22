@@ -52,6 +52,10 @@ class Settings(BaseSettings):
         default=300,
         description="Default collection interval in seconds",
     )
+    FORECAST_COLLECTION_INTERVAL: int = Field(
+        default=3600,
+        description="Forecast collection interval in seconds (default: 1 hour)",
+    )
     MAX_CONCURRENT_COLLECTIONS: int = Field(
         default=5,
         description="Maximum number of concurrent collection tasks",
@@ -73,7 +77,7 @@ class Settings(BaseSettings):
         description="API server port",
     )
 
-    @field_validator("DEFAULT_COLLECTION_INTERVAL")
+    @field_validator("DEFAULT_COLLECTION_INTERVAL", "FORECAST_COLLECTION_INTERVAL")
     @classmethod
     def validate_collection_interval(cls, v: int) -> int:
         """Validate that collection interval is positive."""
