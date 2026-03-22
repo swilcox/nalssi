@@ -1,0 +1,51 @@
+services:
+  backend:
+    image: ghcr.io/swilcox/nalssi:latest
+    container_name: nalssi-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - nalssi-data:/app/data
+    environment:
+      - APP_NAME=nalssi
+      - APP_VERSION=0.1.0
+      - DATABASE_URL=postgresql://nalssi:nalssi@postgres:5432/nalssi
+      - LOG_LEVEL=INFO
+      - DEFAULT_COLLECTION_INTERVAL=300
+      - FORECAST_COLLECTION_INTERVAL=3600
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: nalssi-postgres
+    environment:
+      - POSTGRES_USER=nalssi
+      - POSTGRES_PASSWORD=nalssi
+      - POSTGRES_DB=nalssi
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nalssi"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  nalssi-data:
+    driver: local
+  postgres-data:
+    driver: local
