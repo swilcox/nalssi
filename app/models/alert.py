@@ -14,7 +14,6 @@ from sqlalchemy.orm import relationship
 # response_type: Shelter, Evacuate, Prepare, Execute, Avoid, Monitor, AllClear, None
 # status: Actual, Exercise, System, Test, Draft
 # message_type: Alert, Update, Cancel, Ack, Error
-
 from app.database import Base
 
 

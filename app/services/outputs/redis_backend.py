@@ -2,16 +2,15 @@
 Redis output backend implementation.
 """
 
-import logging
-
 import redis.asyncio as aioredis
+import structlog
 
 from app.models.location import Location
 from app.services.outputs.base import BaseOutputBackend, WriteResult
 from app.services.outputs.formats.kurokku import KurokuuFormatTransform
 from app.services.weather_apis.base import WeatherAlert, WeatherData
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 FORMAT_TRANSFORMS = {
     "kurokku": KurokuuFormatTransform,
@@ -58,8 +57,8 @@ class RedisOutputBackend(BaseOutputBackend):
             self._client = aioredis.from_url(
                 url,
                 decode_responses=True,
-                socket_timeout=self.config.get("timeout", 10),
-                socket_connect_timeout=self.config.get("connect_timeout", 5),
+                socket_timeout=self.config.get("timeout", 3),
+                socket_connect_timeout=self.config.get("connect_timeout", 2),
             )
         return self._client
 

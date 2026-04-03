@@ -183,7 +183,7 @@ async def test_collect_all_success(db_session):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_collect_all_with_errors(db_session, caplog):
+async def test_collect_all_with_errors(db_session, capsys):
     """Test collect_all handles errors gracefully."""
     # Create locations
     location1 = Location(
@@ -230,7 +230,8 @@ async def test_collect_all_with_errors(db_session, caplog):
         assert stats["total_locations"] == 2
         assert stats["success_count"] == 1
         assert stats["error_count"] == 1
-        assert "Failed to collect weather" in caplog.text
+        captured = capsys.readouterr()
+        assert "Failed to collect weather" in captured.out
 
 
 @pytest.mark.unit

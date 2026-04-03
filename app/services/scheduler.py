@@ -4,15 +4,14 @@ Scheduled task management using APScheduler.
 Manages periodic weather data collection for all enabled locations.
 """
 
-import logging
-
+import structlog
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import settings
 from app.services.collectors import get_collector
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class SchedulerService:
@@ -62,32 +61,22 @@ class SchedulerService:
         self.scheduler.start()
         logger.info(
             "Scheduler started",
-            extra={
-                "weather_interval_seconds": settings.DEFAULT_COLLECTION_INTERVAL,
-                "forecast_interval_seconds": settings.FORECAST_COLLECTION_INTERVAL,
-            },
+            weather_interval_seconds=settings.DEFAULT_COLLECTION_INTERVAL,
+            forecast_interval_seconds=settings.FORECAST_COLLECTION_INTERVAL,
         )
 
         # Run first collection immediately
         logger.info("Running initial weather collection")
         try:
             self.collector.collect_all_sync()
-        except Exception as e:
-            logger.error(
-                "Initial weather collection failed",
-                extra={"error": str(e)},
-                exc_info=True,
-            )
+        except Exception:
+            logger.exception("Initial weather collection failed")
 
         logger.info("Running initial forecast collection")
         try:
             self.collector.collect_all_forecasts_sync()
-        except Exception as e:
-            logger.error(
-                "Initial forecast collection failed",
-                extra={"error": str(e)},
-                exc_info=True,
-            )
+        except Exception:
+            logger.exception("Initial forecast collection failed")
 
     def shutdown(self) -> None:
         """

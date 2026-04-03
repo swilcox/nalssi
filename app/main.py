@@ -2,9 +2,9 @@
 Main FastAPI application for nalssi weather service.
 """
 
-import logging
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,7 +22,7 @@ from app.services.scheduler import get_scheduler
 # Initialize logging
 setup_logging(log_level=settings.LOG_LEVEL, json_logs=settings.JSON_LOGS)
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 @asynccontextmanager
@@ -38,12 +38,10 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info(
         "Starting nalssi weather service",
-        extra={
-            "app_name": settings.APP_NAME,
-            "version": settings.APP_VERSION,
-            "log_level": settings.LOG_LEVEL,
-            "json_logs": settings.JSON_LOGS,
-        },
+        app_name=settings.APP_NAME,
+        version=settings.APP_VERSION,
+        log_level=settings.LOG_LEVEL,
+        json_logs=settings.JSON_LOGS,
     )
 
     # Start the scheduler if enabled

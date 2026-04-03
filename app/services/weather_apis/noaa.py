@@ -4,13 +4,12 @@ NOAA (National Weather Service) API client.
 Documentation: https://www.weather.gov/documentation/services-web-api
 """
 
+import re
 from datetime import UTC, datetime
 
 import httpx
 
 from app.config import settings
-import re
-
 from app.services.weather_apis.base import (
     BaseWeatherClient,
     ForecastPeriod,

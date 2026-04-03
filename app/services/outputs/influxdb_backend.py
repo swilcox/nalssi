@@ -2,8 +2,7 @@
 InfluxDB output backend implementation.
 """
 
-import logging
-
+import structlog
 from influxdb_client import WritePrecision
 from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
 from influxdb_client.client.write.point import Point
@@ -13,7 +12,7 @@ from app.models.location import Location
 from app.services.outputs.base import BaseOutputBackend, WriteResult
 from app.services.weather_apis.base import WeatherAlert, WeatherData
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 # WeatherData fields to write as InfluxDB fields (name -> type hint for int vs float)
 _WEATHER_FIELDS = {

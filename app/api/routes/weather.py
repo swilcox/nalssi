@@ -3,9 +3,10 @@ Weather data API routes.
 """
 
 import json
-import logging
+from datetime import UTC
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -20,7 +21,7 @@ from app.schemas.weather import (
 from app.services.weather_apis.noaa import NOAAWeatherClient
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 @router.get(
@@ -56,7 +57,7 @@ async def get_current_weather(
     if not location:
         logger.warning(
             "Location not found for weather request",
-            extra={"location_id": str(location_id)},
+            location_id=str(location_id),
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -67,10 +68,8 @@ async def get_current_weather(
     if fresh:
         logger.info(
             "Fetching fresh weather data from API",
-            extra={
-                "location_id": str(location_id),
-                "location_name": location.name,
-            },
+            location_id=str(location_id),
+            location_name=location.name,
         )
 
         # Get weather from appropriate API
@@ -88,11 +87,9 @@ async def get_current_weather(
             )
             logger.info(
                 "Successfully fetched fresh weather data",
-                extra={
-                    "location_id": str(location_id),
-                    "source_api": client.name,
-                    "temperature": weather_data.temperature,
-                },
+                location_id=str(location_id),
+                source_api=client.name,
+                temperature=weather_data.temperature,
             )
 
             # Convert to response schema
@@ -113,13 +110,9 @@ async def get_current_weather(
                 raw_data=weather_data.raw_data if include_raw else None,
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to fetch fresh weather data",
-                extra={
-                    "location_id": str(location_id),
-                    "error": str(e),
-                },
-                exc_info=True,
+                location_id=str(location_id),
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -129,10 +122,8 @@ async def get_current_weather(
     # Return cached data from database
     logger.info(
         "Retrieving cached weather data",
-        extra={
-            "location_id": str(location_id),
-            "location_name": location.name,
-        },
+        location_id=str(location_id),
+        location_name=location.name,
     )
 
     # Get most recent weather data for this location
@@ -146,7 +137,7 @@ async def get_current_weather(
     if not latest_weather:
         logger.warning(
             "No cached weather data available",
-            extra={"location_id": str(location_id)},
+            location_id=str(location_id),
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -155,11 +146,9 @@ async def get_current_weather(
 
     logger.info(
         "Returning cached weather data",
-        extra={
-            "location_id": str(location_id),
-            "timestamp": latest_weather.timestamp,
-            "source_api": latest_weather.source_api,
-        },
+        location_id=str(location_id),
+        timestamp=latest_weather.timestamp,
+        source_api=latest_weather.source_api,
     )
 
     # Parse raw_data from JSON text if requested
@@ -212,15 +201,16 @@ async def get_alerts(
     Raises:
         HTTPException: If location not found or alert fetch fails
     """
-    from app.models.alert import Alert
     import json
+
+    from app.models.alert import Alert
 
     # Get location from database
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
         logger.warning(
             "Location not found for alerts request",
-            extra={"location_id": str(location_id)},
+            location_id=str(location_id),
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -231,10 +221,8 @@ async def get_alerts(
     if fresh:
         logger.info(
             "Fetching fresh weather alerts from API",
-            extra={
-                "location_id": str(location_id),
-                "location_name": location.name,
-            },
+            location_id=str(location_id),
+            location_name=location.name,
         )
 
         # Get alerts from appropriate API
@@ -250,10 +238,8 @@ async def get_alerts(
             alerts = await client.get_alerts(location.latitude, location.longitude)
             logger.info(
                 "Successfully fetched fresh alerts",
-                extra={
-                    "location_id": str(location_id),
-                    "alert_count": len(alerts),
-                },
+                location_id=str(location_id),
+                alert_count=len(alerts),
             )
 
             # Convert to response schema
@@ -272,13 +258,9 @@ async def get_alerts(
                 for alert in alerts
             ]
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to fetch fresh alerts",
-                extra={
-                    "location_id": str(location_id),
-                    "error": str(e),
-                },
-                exc_info=True,
+                location_id=str(location_id),
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -288,16 +270,14 @@ async def get_alerts(
     # Return cached active alerts from database
     logger.info(
         "Retrieving cached weather alerts",
-        extra={
-            "location_id": str(location_id),
-            "location_name": location.name,
-        },
+        location_id=str(location_id),
+        location_name=location.name,
     )
 
     # Get active alerts that haven't expired yet
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     cached_alerts = (
         db.query(Alert)
@@ -309,10 +289,8 @@ async def get_alerts(
 
     logger.info(
         "Returning cached alerts",
-        extra={
-            "location_id": str(location_id),
-            "alert_count": len(cached_alerts),
-        },
+        location_id=str(location_id),
+        alert_count=len(cached_alerts),
     )
 
     # Convert to response schema

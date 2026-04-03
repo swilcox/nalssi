@@ -2,12 +2,16 @@
 Unit tests for the output manager.
 """
 
+import asyncio
 import json
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.services.outputs.base import WriteResult
 from app.services.outputs.manager import (
+    CircuitBreaker,
     OutputManager,
     _create_backend,
     _location_matches_filter,
@@ -121,6 +125,43 @@ class TestCreateBackend:
 
 
 @pytest.mark.unit
+class TestCircuitBreaker:
+    def test_initially_closed(self):
+        cb = CircuitBreaker(threshold=3, cooldown=60)
+        assert cb.is_open("test") is False
+
+    def test_opens_after_threshold_failures(self):
+        cb = CircuitBreaker(threshold=3, cooldown=60)
+        cb.record_failure("test")
+        cb.record_failure("test")
+        assert cb.is_open("test") is False
+        cb.record_failure("test")
+        assert cb.is_open("test") is True
+
+    def test_success_resets_count(self):
+        cb = CircuitBreaker(threshold=3, cooldown=60)
+        cb.record_failure("test")
+        cb.record_failure("test")
+        cb.record_success("test")
+        cb.record_failure("test")
+        assert cb.is_open("test") is False
+
+    def test_cooldown_allows_retry(self):
+        cb = CircuitBreaker(threshold=1, cooldown=0.1)
+        cb.record_failure("test")
+        assert cb.is_open("test") is True
+        time.sleep(0.15)
+        assert cb.is_open("test") is False
+
+    def test_independent_per_backend(self):
+        cb = CircuitBreaker(threshold=2, cooldown=60)
+        cb.record_failure("redis")
+        cb.record_failure("redis")
+        assert cb.is_open("redis") is True
+        assert cb.is_open("influxdb") is False
+
+
+@pytest.mark.unit
 class TestOutputManager:
     @pytest.mark.asyncio
     async def test_distribute_no_configs(self):
@@ -155,8 +196,6 @@ class TestOutputManager:
 
         config = _make_backend_config(location_filter=None)
         db.query.return_value.filter.return_value.all.return_value = [config]
-
-        from app.services.outputs.base import WriteResult
 
         mock_result = WriteResult(success=True, backend_name="test", keys_written=1)
 
@@ -193,3 +232,113 @@ class TestOutputManager:
             assert len(results) == 1
             assert results[0].success is False
             assert "Connection refused" in results[0].errors[0]
+
+    @pytest.mark.asyncio
+    async def test_distribute_times_out_slow_backend(self):
+        """A backend that takes too long should be timed out."""
+        manager = OutputManager(backend_timeout=0.1)
+        db = MagicMock()
+
+        config = _make_backend_config(location_filter=None)
+        db.query.return_value.filter.return_value.all.return_value = [config]
+
+        async def slow_write(*args, **kwargs):
+            await asyncio.sleep(5)
+            return WriteResult(success=True, backend_name="test")
+
+        with patch("app.services.outputs.manager._create_backend") as mock_create:
+            mock_backend = AsyncMock()
+            mock_backend.write.side_effect = slow_write
+            mock_create.return_value = mock_backend
+
+            location = _make_location()
+            results = await manager.distribute(db, location, None, [])
+
+            assert len(results) == 1
+            assert results[0].success is False
+            assert "Timed out" in results[0].errors[0]
+            mock_backend.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_distribute_skips_circuit_broken_backend(self):
+        """Backend with open circuit breaker should be skipped."""
+        cb = CircuitBreaker(threshold=1, cooldown=300)
+        cb.record_failure("test_redis")
+
+        manager = OutputManager(circuit_breaker=cb)
+        db = MagicMock()
+
+        config = _make_backend_config(location_filter=None)
+        db.query.return_value.filter.return_value.all.return_value = [config]
+
+        with patch("app.services.outputs.manager._create_backend") as mock_create:
+            location = _make_location()
+            results = await manager.distribute(db, location, None, [])
+
+            assert len(results) == 1
+            assert results[0].success is False
+            assert "circuit breaker" in results[0].errors[0].lower()
+            # Backend should never be created or called
+            mock_create.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_distribute_runs_backends_concurrently(self):
+        """Multiple backends should run concurrently, not sequentially."""
+        manager = OutputManager(backend_timeout=2.0)
+        db = MagicMock()
+
+        config1 = _make_backend_config(name="backend_1", location_filter=None)
+        config2 = _make_backend_config(name="backend_2", location_filter=None)
+        db.query.return_value.filter.return_value.all.return_value = [config1, config2]
+
+        call_times = []
+
+        async def tracked_write(*args, **kwargs):
+            call_times.append(asyncio.get_event_loop().time())
+            await asyncio.sleep(0.2)
+            return WriteResult(success=True, backend_name="test", keys_written=1)
+
+        with patch("app.services.outputs.manager._create_backend") as mock_create:
+            mock_backend = AsyncMock()
+            mock_backend.write.side_effect = tracked_write
+            mock_create.return_value = mock_backend
+
+            location = _make_location()
+            start = asyncio.get_event_loop().time()
+            results = await manager.distribute(db, location, None, [])
+            elapsed = asyncio.get_event_loop().time() - start
+
+            assert len(results) == 2
+            # Both should succeed
+            assert all(r.success for r in results)
+            # Should complete in ~0.2s (concurrent), not ~0.4s (sequential)
+            assert elapsed < 0.4
+
+    @pytest.mark.asyncio
+    async def test_timeout_records_circuit_breaker_failure(self):
+        """A timed-out backend should trigger circuit breaker recording."""
+        cb = CircuitBreaker(threshold=2, cooldown=300)
+        manager = OutputManager(backend_timeout=0.1, circuit_breaker=cb)
+        db = MagicMock()
+
+        config = _make_backend_config(location_filter=None)
+        db.query.return_value.filter.return_value.all.return_value = [config]
+
+        async def slow_write(*args, **kwargs):
+            await asyncio.sleep(5)
+            return WriteResult(success=True, backend_name="test")
+
+        with patch("app.services.outputs.manager._create_backend") as mock_create:
+            mock_backend = AsyncMock()
+            mock_backend.write.side_effect = slow_write
+            mock_create.return_value = mock_backend
+
+            location = _make_location()
+
+            # First timeout
+            await manager.distribute(db, location, None, [])
+            assert not cb.is_open("test_redis")
+
+            # Second timeout trips the breaker
+            await manager.distribute(db, location, None, [])
+            assert cb.is_open("test_redis")

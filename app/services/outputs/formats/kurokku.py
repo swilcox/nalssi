@@ -5,13 +5,14 @@ Produces Redis keys/values in the exact format that led-kurokku expects.
 """
 
 import json
-import logging
 from datetime import UTC, datetime
+
+import structlog
 
 from app.models.location import Location
 from app.services.weather_apis.base import WeatherAlert, WeatherData
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 # Default alert priority mapping (event substring -> priority level)
 DEFAULT_ALERT_PRIORITIES = {

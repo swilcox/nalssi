@@ -3,9 +3,9 @@ Output backend configuration API routes.
 """
 
 import json
-import logging
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,7 @@ from app.schemas.backend_config import (
 from app.services.outputs.manager import _create_backend, _parse_json_field
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 def _config_to_response(config: OutputBackendConfig) -> dict:

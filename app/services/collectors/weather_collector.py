@@ -6,9 +6,9 @@ Periodically fetches weather data for all enabled locations and stores in databa
 
 import asyncio
 import json
-import logging
 from datetime import UTC, datetime
 
+import structlog
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
@@ -22,7 +22,7 @@ from app.services.weather_apis.noaa import NOAAWeatherClient
 from app.services.weather_apis.open_meteo import OpenMeteoClient
 from app.services.weather_apis.openweather import OpenWeatherClient
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class WeatherCollector:
@@ -55,25 +55,24 @@ class WeatherCollector:
             stats["total_locations"] = len(locations)
 
             logger.info(
-                f"Found {len(locations)} enabled locations for collection",
-                extra={"location_count": len(locations)},
+                "Found enabled locations for collection",
+                location_count=len(locations),
             )
 
-            # Collect weather for each location
+            # Collect weather for each location, accumulating distribution work
+            pending_distributions = []
             for location in locations:
                 try:
-                    await self._collect_for_location(db, location)
+                    dist_item = await self._collect_for_location(db, location)
                     stats["success_count"] += 1
-                except Exception as e:
+                    if dist_item:
+                        pending_distributions.append(dist_item)
+                except Exception:
                     stats["error_count"] += 1
-                    logger.error(
-                        f"Failed to collect weather for location {location.name}",
-                        extra={
-                            "location_id": str(location.id),
-                            "location_name": location.name,
-                            "error": str(e),
-                        },
-                        exc_info=True,
+                    logger.exception(
+                        "Failed to collect weather for location",
+                        location_id=str(location.id),
+                        location_name=location.name,
                     )
 
             # Commit all changes
@@ -81,29 +80,36 @@ class WeatherCollector:
 
             logger.info(
                 "Weather collection cycle completed",
-                extra={
-                    "total": stats["total_locations"],
-                    "success": stats["success_count"],
-                    "errors": stats["error_count"],
-                },
+                total=stats["total_locations"],
+                success=stats["success_count"],
+                errors=stats["error_count"],
             )
+
+            # Distribute to output backends concurrently (non-blocking to collection)
+            if pending_distributions:
+                dist_tasks = [
+                    self.output_manager.distribute(db, loc, wd, al)
+                    for loc, wd, al in pending_distributions
+                ]
+                dist_results = await asyncio.gather(*dist_tasks, return_exceptions=True)
+                for result in dist_results:
+                    if isinstance(result, Exception):
+                        logger.warning("Output distribution failed: %s", result)
 
             # Broadcast live updates to WebSocket clients
             await self._broadcast_updates(db)
 
-        except Exception as e:
-            logger.error(
-                "Critical error during weather collection",
-                extra={"error": str(e)},
-                exc_info=True,
-            )
+        except Exception:
+            logger.exception("Critical error during weather collection")
             db.rollback()
         finally:
             db.close()
 
         return stats
 
-    async def _collect_for_location(self, db: Session, location: Location) -> None:
+    async def _collect_for_location(
+        self, db: Session, location: Location
+    ) -> tuple | None:
         """
         Collect weather data for a specific location.
 
@@ -111,17 +117,19 @@ class WeatherCollector:
             db: Database session
             location: Location to collect weather for
 
+        Returns:
+            Tuple of (location, weather_data, alerts) for output distribution,
+            or None if there's nothing to distribute.
+
         Raises:
             Exception: If weather collection fails
         """
         logger.info(
-            f"Collecting weather for {location.name}",
-            extra={
-                "location_id": str(location.id),
-                "location_name": location.name,
-                "latitude": location.latitude,
-                "longitude": location.longitude,
-            },
+            "Collecting weather",
+            location_id=str(location.id),
+            location_name=location.name,
+            latitude=location.latitude,
+            longitude=location.longitude,
         )
 
         # Get appropriate weather client based on preferred_api and country
@@ -224,26 +232,21 @@ class WeatherCollector:
 
                     if changes:
                         logger.info(
-                            f"Alert updated for {location.name}: "
-                            f"{alert.event} ({alert.alert_id}): "
-                            f"{', '.join(changes)}",
-                            extra={
-                                "location_id": str(location.id),
-                                "alert_id": alert.alert_id,
-                                "event": alert.event,
-                                "severity": alert.severity,
-                                "changes": changes,
-                            },
+                            "Alert updated",
+                            location_name=location.name,
+                            location_id=str(location.id),
+                            alert_id=alert.alert_id,
+                            alert_event=alert.event,
+                            severity=alert.severity,
+                            changes=changes,
                         )
                     else:
                         logger.debug(
-                            f"Alert unchanged for {location.name}: "
-                            f"{alert.event} ({alert.alert_id})",
-                            extra={
-                                "location_id": str(location.id),
-                                "alert_id": alert.alert_id,
-                                "event": alert.event,
-                            },
+                            "Alert unchanged",
+                            location_name=location.name,
+                            location_id=str(location.id),
+                            alert_id=alert.alert_id,
+                            alert_event=alert.event,
                         )
                 else:
                     db_alert = Alert(
@@ -273,60 +276,44 @@ class WeatherCollector:
                     db.add(db_alert)
                     new_count += 1
                     logger.info(
-                        f"New alert for {location.name}: {alert.event} "
-                        f"(severity={alert.severity}, urgency={alert.urgency}, "
-                        f"expires={alert.expires})",
-                        extra={
-                            "location_id": str(location.id),
-                            "alert_id": alert.alert_id,
-                            "event": alert.event,
-                            "severity": alert.severity,
-                            "urgency": alert.urgency,
-                            "expires": str(alert.expires) if alert.expires else None,
-                            "headline": alert.headline,
-                        },
+                        "New alert",
+                        location_name=location.name,
+                        location_id=str(location.id),
+                        alert_id=alert.alert_id,
+                        event=alert.event,
+                        severity=alert.severity,
+                        urgency=alert.urgency,
+                        expires=str(alert.expires) if alert.expires else None,
+                        headline=alert.headline,
                     )
 
             logger.info(
-                f"Alert check for {location.name}: {len(alerts)} fetched, "
-                f"{new_count} new, {updated_count} updated",
-                extra={
-                    "location_id": str(location.id),
-                    "new_alerts": new_count,
-                    "updated_alerts": updated_count,
-                    "total_fetched": len(alerts),
-                },
+                "Alert check complete",
+                location_name=location.name,
+                location_id=str(location.id),
+                new_alerts=new_count,
+                updated_alerts=updated_count,
+                total_fetched=len(alerts),
             )
-        except Exception as e:
+        except Exception:
             logger.warning(
-                f"Failed to fetch/store alerts for {location.name}: {str(e)}",
-                extra={
-                    "location_id": str(location.id),
-                    "error": str(e),
-                },
+                "Failed to fetch/store alerts",
+                location_name=location.name,
+                location_id=str(location.id),
+                exc_info=True,
             )
             # Don't fail the whole collection if alerts fail
 
         logger.info(
-            f"Weather data stored for {location.name}",
-            extra={
-                "location_id": str(location.id),
-                "temperature": weather_data.temperature,
-                "source_api": client.name,
-            },
+            "Weather data stored",
+            location_name=location.name,
+            location_id=str(location.id),
+            temperature=weather_data.temperature,
+            source_api=client.name,
         )
 
-        # Distribute to output backends (fire-and-forget, failures don't break collection)
-        try:
-            await self.output_manager.distribute(db, location, weather_data, alerts)
-        except Exception as e:
-            logger.warning(
-                f"Output distribution failed for {location.name}: {e}",
-                extra={
-                    "location_id": str(location.id),
-                    "error": str(e),
-                },
-            )
+        # Return distribution work item for batched concurrent execution
+        return (location, weather_data, alerts)
 
     async def _broadcast_updates(self, db: Session) -> None:
         """Broadcast updated dashboard cards and alerts to WebSocket clients."""
@@ -398,15 +385,13 @@ class WeatherCollector:
 
             logger.debug(
                 "Broadcast weather, alert, and system updates to WebSocket clients",
-                extra={
-                    "card_count": len(items),
-                    "alert_count": len(alert_items),
-                },
+                card_count=len(items),
+                alert_count=len(alert_items),
             )
-        except Exception as e:
+        except Exception:
             logger.warning(
-                f"Failed to broadcast WebSocket updates: {e}",
-                extra={"error": str(e)},
+                "Failed to broadcast WebSocket updates",
+                exc_info=True,
             )
 
     def _get_client_for_location(self, location: Location):
@@ -440,34 +425,25 @@ class WeatherCollector:
                 try:
                     await self._collect_forecasts_for_location(db, location)
                     stats["success_count"] += 1
-                except Exception as e:
+                except Exception:
                     stats["error_count"] += 1
-                    logger.error(
-                        f"Failed to collect forecast for {location.name}",
-                        extra={
-                            "location_id": str(location.id),
-                            "error": str(e),
-                        },
-                        exc_info=True,
+                    logger.exception(
+                        "Failed to collect forecast",
+                        location_name=location.name,
+                        location_id=str(location.id),
                     )
 
             db.commit()
 
             logger.info(
                 "Forecast collection cycle completed",
-                extra={
-                    "total": stats["total_locations"],
-                    "success": stats["success_count"],
-                    "errors": stats["error_count"],
-                },
+                total=stats["total_locations"],
+                success=stats["success_count"],
+                errors=stats["error_count"],
             )
 
-        except Exception as e:
-            logger.error(
-                "Critical error during forecast collection",
-                extra={"error": str(e)},
-                exc_info=True,
-            )
+        except Exception:
+            logger.exception("Critical error during forecast collection")
             db.rollback()
         finally:
             db.close()
@@ -551,14 +527,12 @@ class WeatherCollector:
                 new_forecasts += 1
 
         logger.info(
-            f"Forecast for {location.name}: {len(forecast_periods)} periods, "
-            f"{new_forecasts} new, {updated_forecasts} updated",
-            extra={
-                "location_id": str(location.id),
-                "total_periods": len(forecast_periods),
-                "new_forecasts": new_forecasts,
-                "updated_forecasts": updated_forecasts,
-            },
+            "Forecast collection complete",
+            location_name=location.name,
+            location_id=str(location.id),
+            total_periods=len(forecast_periods),
+            new_forecasts=new_forecasts,
+            updated_forecasts=updated_forecasts,
         )
 
     def collect_all_forecasts_sync(self) -> dict[str, int]:

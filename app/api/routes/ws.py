@@ -2,13 +2,12 @@
 WebSocket endpoint for live weather updates.
 """
 
-import logging
-
+import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.services.broadcast import manager
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 router = APIRouter()
 

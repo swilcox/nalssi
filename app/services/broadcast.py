@@ -5,11 +5,10 @@ Manages connected WebSocket clients and broadcasts HTML fragments
 for HTMX out-of-band swaps.
 """
 
-import logging
-
+import structlog
 from fastapi import WebSocket
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class ConnectionManager:
@@ -23,14 +22,14 @@ class ConnectionManager:
         self.active_connections.append(websocket)
         logger.info(
             "WebSocket client connected",
-            extra={"total_connections": len(self.active_connections)},
+            total_connections=len(self.active_connections),
         )
 
     def disconnect(self, websocket: WebSocket) -> None:
         self.active_connections.remove(websocket)
         logger.info(
             "WebSocket client disconnected",
-            extra={"total_connections": len(self.active_connections)},
+            total_connections=len(self.active_connections),
         )
 
     async def broadcast(self, message: str) -> None:
@@ -48,7 +47,7 @@ class ConnectionManager:
         if disconnected:
             logger.debug(
                 "Cleaned up disconnected WebSocket clients",
-                extra={"removed": len(disconnected)},
+                removed=len(disconnected),
             )
 
 
