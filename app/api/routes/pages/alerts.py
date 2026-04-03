@@ -85,9 +85,9 @@ def alerts_page(request: Request, db: Session = Depends(get_db)):
     )
 
     return templates.TemplateResponse(
+        request,
         template,
         {
-            "request": request,
             "alerts": items,
             "alert_count": len(items),
             "nav_active": "alerts",

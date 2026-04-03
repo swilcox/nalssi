@@ -86,9 +86,9 @@ def system_status(request: Request, db: Session = Depends(get_db)):
     )
 
     return templates.TemplateResponse(
+        request,
         template,
         {
-            "request": request,
             "version": settings.APP_VERSION,
             **stats,
             "scheduler_jobs": scheduler_jobs,

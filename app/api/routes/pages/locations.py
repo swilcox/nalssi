@@ -20,8 +20,9 @@ def locations_list(request: Request, db: Session = Depends(get_db)):
     """Locations list page."""
     locations = db.query(Location).order_by(Location.name).all()
     return templates.TemplateResponse(
+        request,
         "locations/list.html",
-        {"request": request, "locations": locations, "nav_active": "locations"},
+        {"locations": locations, "nav_active": "locations"},
     )
 
 
@@ -86,8 +87,9 @@ def create_location(
     db.refresh(location)
 
     return templates.TemplateResponse(
+        request,
         "locations/_row.html",
-        {"request": request, "location": location},
+        {"location": location},
         headers={"HX-Trigger": "clearErrors"},
     )
 
@@ -103,8 +105,9 @@ def edit_location_form(
     if not location:
         return Response(content="Location not found", status_code=404)
     return templates.TemplateResponse(
+        request,
         "locations/_form.html",
-        {"request": request, "location": location},
+        {"location": location},
     )
 
 
@@ -119,8 +122,9 @@ def location_row(
     if not location:
         return Response(content="Location not found", status_code=404)
     return templates.TemplateResponse(
+        request,
         "locations/_row.html",
-        {"request": request, "location": location},
+        {"location": location},
     )
 
 
@@ -156,8 +160,9 @@ def update_location(
 
     if errors:
         return templates.TemplateResponse(
+            request,
             "locations/_form.html",
-            {"request": request, "location": location, "error": "; ".join(errors)},
+            {"location": location, "error": "; ".join(errors)},
         )
 
     location.name = name.strip()
@@ -173,8 +178,9 @@ def update_location(
     db.refresh(location)
 
     return templates.TemplateResponse(
+        request,
         "locations/_row.html",
-        {"request": request, "location": location},
+        {"location": location},
     )
 
 

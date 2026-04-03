@@ -100,9 +100,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     )
 
     return templates.TemplateResponse(
+        request,
         template,
         {
-            "request": request,
             "locations": items,
             "nav_alert_count": nav_alert_count,
             "nav_active": "dashboard",

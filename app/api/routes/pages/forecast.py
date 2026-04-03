@@ -84,9 +84,9 @@ def forecast_page(request: Request, db: Session = Depends(get_db)):
     )
 
     return templates.TemplateResponse(
+        request,
         template,
         {
-            "request": request,
             "forecast_locations": items,
             "nav_active": "forecast",
         },

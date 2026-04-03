@@ -97,8 +97,9 @@ def backends_list(request: Request, db: Session = Depends(get_db)):
     configs = db.query(OutputBackendConfig).order_by(OutputBackendConfig.name).all()
     backends = [_backend_display(c) for c in configs]
     return templates.TemplateResponse(
+        request,
         "backends/list.html",
-        {"request": request, "backends": backends, **_common_context(db), "nav_active": "backends"},
+        {"backends": backends, **_common_context(db), "nav_active": "backends"},
     )
 
 
@@ -162,9 +163,9 @@ def create_backend_config(
     db.refresh(config)
 
     return templates.TemplateResponse(
+        request,
         "backends/_row.html",
         {
-            "request": request,
             "backend": _backend_display(config),
             **_common_context(db),
         },
@@ -187,9 +188,9 @@ def edit_backend_form(
     if not config:
         return Response(content="Backend not found", status_code=404)
     return templates.TemplateResponse(
+        request,
         "backends/_form.html",
         {
-            "request": request,
             "backend": _backend_display(config),
             **_common_context(db),
         },
@@ -211,9 +212,9 @@ def backend_row(
     if not config:
         return Response(content="Backend not found", status_code=404)
     return templates.TemplateResponse(
+        request,
         "backends/_row.html",
         {
-            "request": request,
             "backend": _backend_display(config),
             **_common_context(db),
         },
@@ -262,9 +263,9 @@ def update_backend_config(
     if errors:
         backend_data = _backend_display(config)
         return templates.TemplateResponse(
+            request,
             "backends/_form.html",
             {
-                "request": request,
                 "backend": backend_data,
                 "error": "; ".join(errors),
                 **_common_context(db),
@@ -287,9 +288,9 @@ def update_backend_config(
     db.refresh(config)
 
     return templates.TemplateResponse(
+        request,
         "backends/_row.html",
         {
-            "request": request,
             "backend": _backend_display(config),
             **_common_context(db),
         },

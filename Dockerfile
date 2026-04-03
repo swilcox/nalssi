@@ -52,7 +52,18 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 RUN echo '#!/bin/sh\n\
 set -e\n\
 echo "Running database migrations..."\n\
-uv run alembic upgrade head\n\
+MAX_RETRIES=5\n\
+RETRY=0\n\
+until uv run alembic upgrade head; do\n\
+    RETRY=$((RETRY + 1))\n\
+    if [ "$RETRY" -ge "$MAX_RETRIES" ]; then\n\
+        echo "ERROR: Database migrations failed after $MAX_RETRIES attempts"\n\
+        exit 1\n\
+    fi\n\
+    echo "Migration attempt $RETRY failed, retrying in 3s..."\n\
+    sleep 3\n\
+done\n\
+echo "Migrations complete."\n\
 echo "Starting FastAPI application..."\n\
 exec uv run python -m app.server\n\
 ' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh

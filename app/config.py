@@ -2,8 +2,21 @@
 Application configuration management using Pydantic Settings.
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+try:
+    _APP_VERSION = version("nalssi")
+except PackageNotFoundError:
+    # Fall back to reading pyproject.toml directly (e.g. dev without editable install)
+    from pathlib import Path
+    import tomllib
+
+    _pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+    with open(_pyproject, "rb") as f:
+        _APP_VERSION = tomllib.load(f)["project"]["version"]
 
 
 class Settings(BaseSettings):
@@ -21,7 +34,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "nalssi"
-    APP_VERSION: str = "0.1.0"
+    APP_VERSION: str = _APP_VERSION
     LOG_LEVEL: str = "INFO"
     JSON_LOGS: bool = Field(
         default=False,

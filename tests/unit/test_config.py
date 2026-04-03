@@ -15,7 +15,7 @@ def test_settings_loads_defaults():
     settings = Settings()
 
     assert settings.APP_NAME == "nalssi"
-    assert settings.APP_VERSION == "0.1.0"
+    assert settings.APP_VERSION  # read from pyproject.toml at runtime
     assert settings.LOG_LEVEL == "INFO"
     assert settings.DEBUG is False
 
