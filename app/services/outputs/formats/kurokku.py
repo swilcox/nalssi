@@ -72,6 +72,12 @@ class KurokuuFormatTransform:
             ).items()
         }
         self.temp_ttl = self.format_config.get("temp_ttl", self.DEFAULT_TEMP_TTL)
+        self.display_duration_base = self.format_config.get(
+            "display_duration_base", self.DISPLAY_DURATION_BASE
+        )
+        self.display_duration_per_char = self.format_config.get(
+            "display_duration_per_char", self.DISPLAY_DURATION_PER_CHAR
+        )
 
     def format_temperature_for_display(self, temp_f: float | None) -> str:
         """
@@ -202,8 +208,8 @@ class KurokuuFormatTransform:
             Display duration as a Go-style duration string (e.g., "8.4s")
         """
         duration = (
-            len(message) * self.DISPLAY_DURATION_PER_CHAR
-        ) + self.DISPLAY_DURATION_BASE
+            len(message) * self.display_duration_per_char
+        ) + self.display_duration_base
         return f"{round(duration, 1)}s"
 
     def format_alerts(

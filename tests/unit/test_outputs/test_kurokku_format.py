@@ -272,6 +272,23 @@ class TestDisplayDuration:
         t = KurokuuFormatTransform()
         assert t._calculate_display_duration("") == "3.0s"
 
+    def test_custom_base(self):
+        t = KurokuuFormatTransform({"display_duration_base": 5.0})
+        # "Frost" = 5 chars -> 5 * 0.3 + 5.0 = 6.5
+        assert t._calculate_display_duration("Frost") == "6.5s"
+
+    def test_custom_per_char(self):
+        t = KurokuuFormatTransform({"display_duration_per_char": 0.5})
+        # "Frost" = 5 chars -> 5 * 0.5 + 3.0 = 5.5
+        assert t._calculate_display_duration("Frost") == "5.5s"
+
+    def test_custom_both(self):
+        t = KurokuuFormatTransform(
+            {"display_duration_base": 2.0, "display_duration_per_char": 0.1}
+        )
+        # "Frost" = 5 chars -> 5 * 0.1 + 2.0 = 2.5
+        assert t._calculate_display_duration("Frost") == "2.5s"
+
 
 @pytest.mark.unit
 class TestFormatAlerts:

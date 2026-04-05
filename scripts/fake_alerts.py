@@ -22,6 +22,7 @@ Examples:
     uv run python scripts/fake_alerts.py --scenario tornado
     uv run python scripts/fake_alerts.py --scenario mixed --ttl 120
     uv run python scripts/fake_alerts.py --scenario custom --event "Alien Invasion Warning" --priority 0 --ttl 60
+    uv run python scripts/fake_alerts.py --duration-base 5.0 --duration-per-char 0.5 --scenario tornado
     uv run python scripts/fake_alerts.py --clear
 """
 
@@ -81,19 +82,19 @@ DEFAULT_TTL = 300  # 5 minutes
 DEFAULT_REDIS_URL = "redis://localhost:6379/0"
 
 
-def calc_display_duration(message: str) -> str:
-    duration = len(message) * DISPLAY_DURATION_PER_CHAR + DISPLAY_DURATION_BASE
+def calc_display_duration(message: str, base: float = DISPLAY_DURATION_BASE, per_char: float = DISPLAY_DURATION_PER_CHAR) -> str:
+    duration = len(message) * per_char + base
     return f"{round(duration, 1)}s"
 
 
-def build_alert_entry(event: str, priority: int, ttl: int, slug: str, index: int):
+def build_alert_entry(event: str, priority: int, ttl: int, slug: str, index: int, duration_base: float = DISPLAY_DURATION_BASE, duration_per_char: float = DISPLAY_DURATION_PER_CHAR):
     now = datetime.now(UTC)
     key = f"kurokku:alert:weather:{slug}:{index}"
     value = json.dumps({
         "timestamp": now.isoformat(),
         "message": event,
         "priority": priority,
-        "display_duration": calc_display_duration(event),
+        "display_duration": calc_display_duration(event, duration_base, duration_per_char),
         "delete_after_display": False,
     })
     return key, value, ttl
@@ -118,6 +119,10 @@ def main():
     parser.add_argument("--clear", action="store_true", help="Clear all fake alerts for the slug and exit")
     parser.add_argument("--event", help="Custom event text (use with --scenario custom)")
     parser.add_argument("--priority", type=int, default=5, help="Custom priority 0-5 (use with --scenario custom)")
+    parser.add_argument("--duration-base", type=float, default=DISPLAY_DURATION_BASE,
+                        help=f"Display duration base in seconds (default: {DISPLAY_DURATION_BASE})")
+    parser.add_argument("--duration-per-char", type=float, default=DISPLAY_DURATION_PER_CHAR,
+                        help=f"Display duration per character in seconds (default: {DISPLAY_DURATION_PER_CHAR})")
     parser.add_argument("--dry-run", action="store_true", help="Print what would be written without connecting to Redis")
 
     args = parser.parse_args()
@@ -139,7 +144,7 @@ def main():
 
         print(f"Would write {len(alerts)} alert(s) to {args.redis_url}:\n")
         for i, alert in enumerate(alerts):
-            key, value, ttl = build_alert_entry(alert["event"], alert["priority"], args.ttl, args.slug, i)
+            key, value, ttl = build_alert_entry(alert["event"], alert["priority"], args.ttl, args.slug, i, args.duration_base, args.duration_per_char)
             parsed = json.loads(value)
             print(f"  Key: {key}")
             print(f"  TTL: {ttl}s")
@@ -168,7 +173,7 @@ def main():
 
     # Write alerts
     for i, alert in enumerate(alerts):
-        key, value, ttl = build_alert_entry(alert["event"], alert["priority"], args.ttl, args.slug, i)
+        key, value, ttl = build_alert_entry(alert["event"], alert["priority"], args.ttl, args.slug, i, args.duration_base, args.duration_per_char)
         client.set(key, value, ex=ttl)
         parsed = json.loads(value)
         print(f"Wrote: {key}  (TTL={ttl}s, priority={parsed['priority']}, duration={parsed['display_duration']})")

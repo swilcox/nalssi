@@ -22,6 +22,7 @@
     <td colspan="2">
         <textarea name="connection_config" rows="2" required>{{ backend.connection_config }}</textarea>
         <textarea name="format_config" rows="1" placeholder="Format config JSON (optional)">{{ backend.format_config or '' }}</textarea>
+        <small>Kurokku defaults: display_duration_base=3.0s, display_duration_per_char=0.3s</small>
         <fieldset>
             <legend style="font-size:0.85rem;">Location Filter</legend>
             <select name="filter_mode" style="margin-bottom:0.25rem;">
