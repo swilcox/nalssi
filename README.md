@@ -84,6 +84,48 @@ uv run pytest -m integration    # Integration tests only
 uv run pytest --no-cov -q       # Quick run without coverage
 ```
 
+## Testing Kurokku Devices
+
+The `scripts/fake_alerts.py` tool pushes fake weather alerts directly to a kurokku device's Redis instance, bypassing the normal collection pipeline. Useful for verifying alert display timing, priority ordering, and scrolling behavior on LED clocks.
+
+```bash
+# Push a single Tornado Warning (priority 0) with 5 min TTL
+uv run python scripts/fake_alerts.py --scenario tornado --redis-url redis://lcdtest.local:6379
+
+# Push multiple alerts at different priority levels
+uv run python scripts/fake_alerts.py --scenario mixed --redis-url redis://192.168.1.100
+
+# Shorter TTL for quick iteration (2 minutes)
+uv run python scripts/fake_alerts.py --scenario severe --ttl 120 --redis-url redis://lcdtest.local:6379
+
+# Preview what would be written without touching Redis
+uv run python scripts/fake_alerts.py --scenario all --dry-run
+
+# Custom alert text
+uv run python scripts/fake_alerts.py --scenario custom --event "Zombie Apocalypse Warning" --priority 0 --redis-url redis://lcdtest.local:6379
+
+# Clear all test alerts from a device
+uv run python scripts/fake_alerts.py --clear --redis-url redis://lcdtest.local:6379
+```
+
+**Built-in scenarios:**
+
+| Scenario | Alerts | Priorities |
+|----------|--------|------------|
+| `tornado` | Tornado Warning | 0 |
+| `severe` | Severe Thunderstorm Warning | 1 |
+| `flood` | Flash Flood Warning | 1 |
+| `heat` | Excessive Heat Warning | 2 |
+| `winter` | Winter Storm Warning | 2 |
+| `wind` | High Wind Warning | 2 |
+| `fog` | Dense Fog Advisory | 3 |
+| `frost` | Frost Advisory | 3 |
+| `mixed` | Tornado + Severe Tstorm + Heat | 0, 1, 2 |
+| `all` | One of each priority level | 0–5 |
+| `custom` | Your text via `--event` | Your value via `--priority` |
+
+The `--slug` flag defaults to `spring_hill_tn_noaa`. Override it to target a different location's key namespace.
+
 ## Code Quality
 
 ```bash
@@ -126,6 +168,8 @@ nalssi/
 │   ├── unit/                   # Unit tests
 │   ├── integration/            # Integration tests
 │   └── fixtures/               # Test fixtures (API responses)
+├── scripts/
+│   └── fake_alerts.py          # Push fake alerts to kurokku devices
 ├── alembic.ini
 ├── docker-compose.yml
 ├── Dockerfile
