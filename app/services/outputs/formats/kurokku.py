@@ -52,7 +52,7 @@ class KurokuuFormatTransform:
     """
 
     DEFAULT_TEMP_TTL = 3600  # 1 hour
-    DISPLAY_DURATION_BASE = 3.0  # seconds
+    DISPLAY_DURATION_BASE = 1.75  # seconds
     DISPLAY_DURATION_PER_CHAR = 0.3  # seconds per character
 
     def __init__(self, format_config: dict | None = None):
