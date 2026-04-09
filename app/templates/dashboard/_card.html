@@ -14,14 +14,14 @@
         {{ weather_icon_svg(weather.condition_text | weather_icon, "52") }}
         <div>
             <div class="temp">
-                {% if weather.temperature is not none %}
-                    {{ "%.1f"|format(weather.temperature) }}&deg;C
+                {% if weather.temperature_fahrenheit is not none %}
+                    {{ "%.1f"|format(weather.temperature_fahrenheit) }}&deg;F
                 {% else %}
                     --
                 {% endif %}
             </div>
-            {% if weather.temperature_fahrenheit is not none %}
-            <div class="temp-secondary">{{ "%.1f"|format(weather.temperature_fahrenheit) }}&deg;F</div>
+            {% if weather.temperature is not none %}
+            <div class="temp-secondary">{{ "%.1f"|format(weather.temperature) }}&deg;C</div>
             {% endif %}
         </div>
     </div>

@@ -10,7 +10,6 @@ services:
       - nalssi-data:/app/data
     environment:
       - APP_NAME=nalssi
-      - APP_VERSION=0.1.0
       - DATABASE_URL=postgresql://nalssi:nalssi@postgres:5432/nalssi
       - LOG_LEVEL=INFO
       - DEFAULT_COLLECTION_INTERVAL=300

@@ -28,15 +28,27 @@ def build_forecast_items(db: Session) -> list[dict]:
                 Forecast.location_id == loc.id,
                 Forecast.end_time > now,
             )
-            .order_by(Forecast.start_time)
+            .order_by(Forecast.start_time, Forecast.fetched_at.desc())
             .all()
         )
 
         if not periods:
             continue
 
-        period_items = []
+        # Deduplicate: keep only the latest forecast per (date, is_daytime)
+        seen: set[tuple[str, bool | None]] = set()
+        deduped: list[Forecast] = []
         for p in periods:
+            key = (
+                p.start_time.strftime("%Y-%m-%d") if p.start_time else "",
+                p.is_daytime,
+            )
+            if key not in seen:
+                seen.add(key)
+                deduped.append(p)
+
+        period_items = []
+        for p in deduped:
             period_items.append(
                 {
                     "start_time": p.start_time.strftime("%a %I:%M %p")
