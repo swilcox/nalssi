@@ -252,6 +252,95 @@ class TestAlertPriority:
         assert t._get_alert_priority("Other Event") == 3
         assert t._get_alert_priority("Tornado Warning") == 5  # Not in custom
 
+    def test_cap_severity_fallback(self):
+        t = KurokuuFormatTransform()
+        unmatched = "Unusual Weather Event"
+        assert t._get_alert_priority(unmatched, severity="Extreme") == 1
+        assert t._get_alert_priority(unmatched, severity="Severe") == 2
+        assert t._get_alert_priority(unmatched, severity="Moderate") == 3
+        assert t._get_alert_priority(unmatched, severity="Minor") == 4
+        assert t._get_alert_priority(unmatched, severity="Unknown") == 5
+
+    def test_cap_severity_case_insensitive(self):
+        t = KurokuuFormatTransform()
+        assert t._get_alert_priority("Unusual Event", severity="moderate") == 3
+
+    def test_immediate_urgency_bumps_priority(self):
+        t = KurokuuFormatTransform()
+        unmatched = "Unusual Weather Event"
+        # Moderate (3) + Immediate -> 2
+        assert (
+            t._get_alert_priority(unmatched, severity="Moderate", urgency="Immediate")
+            == 2
+        )
+        # Extreme (1) + Immediate -> 0 (floor)
+        assert (
+            t._get_alert_priority(unmatched, severity="Extreme", urgency="Immediate")
+            == 0
+        )
+        # Expected urgency does not bump
+        assert (
+            t._get_alert_priority(unmatched, severity="Moderate", urgency="Expected")
+            == 3
+        )
+
+    def test_keyword_match_ignores_cap_fields(self):
+        t = KurokuuFormatTransform()
+        # Tornado keyword wins even when CAP fields would suggest otherwise
+        assert (
+            t._get_alert_priority(
+                "Tornado Warning", severity="Minor", urgency="Future"
+            )
+            == 0
+        )
+
+    def test_missing_cap_fields_default_to_5(self):
+        t = KurokuuFormatTransform()
+        assert t._get_alert_priority("Unusual Event") == 5
+        assert t._get_alert_priority("Unusual Event", severity=None) == 5
+
+
+@pytest.mark.unit
+class TestFormatConfigCoercion:
+    """Tests for format_config value coercion from strings / bad types."""
+
+    def test_numeric_strings_are_accepted(self):
+        t = KurokuuFormatTransform(
+            {
+                "display_duration_base": "2.5",
+                "display_duration_per_char": "0.4",
+                "temp_ttl": "1800",
+            }
+        )
+        assert t.display_duration_base == 2.5
+        assert t.display_duration_per_char == 0.4
+        assert t.temp_ttl == 1800
+
+    def test_trailing_s_suffix_is_stripped(self):
+        t = KurokuuFormatTransform(
+            {
+                "display_duration_base": "1.75s",
+                "display_duration_per_char": "0.3s",
+            }
+        )
+        assert t.display_duration_base == 1.75
+        assert t.display_duration_per_char == 0.3
+
+    def test_unparseable_values_fall_back_to_defaults(self):
+        t = KurokuuFormatTransform(
+            {
+                "display_duration_base": "not a number",
+                "display_duration_per_char": "xyz",
+                "temp_ttl": "abc",
+            }
+        )
+        assert t.display_duration_base == KurokuuFormatTransform.DISPLAY_DURATION_BASE
+        assert (
+            t.display_duration_per_char
+            == KurokuuFormatTransform.DISPLAY_DURATION_PER_CHAR
+        )
+        assert t.temp_ttl == KurokuuFormatTransform.DEFAULT_TEMP_TTL
+
 
 @pytest.mark.unit
 class TestDisplayDuration:

@@ -41,6 +41,40 @@ DEFAULT_ALERT_PRIORITIES = {
     "special weather": 4,
 }
 
+# CAP severity fallback mapping when no event keyword matches
+CAP_SEVERITY_PRIORITIES = {
+    "extreme": 1,
+    "severe": 2,
+    "moderate": 3,
+    "minor": 4,
+    "unknown": 5,
+}
+
+
+def _coerce_number(value, default, kind, field):
+    """
+    Coerce a config value to int or float, tolerating strings like "1.75s".
+
+    Falls back to the default (and logs a warning) if the value can't be parsed.
+    """
+    if value is None:
+        return kind(default)
+    if isinstance(value, (int, float)):
+        return kind(value)
+    if isinstance(value, str):
+        stripped = value.strip().rstrip("sS").strip()
+        try:
+            return kind(float(stripped))
+        except ValueError:
+            pass
+    logger.warning(
+        "Invalid kurokku format_config value for %s: %r, using default %r",
+        field,
+        value,
+        default,
+    )
+    return kind(default)
+
 
 class KurokuuFormatTransform:
     """
@@ -71,12 +105,20 @@ class KurokuuFormatTransform:
                 "alert_priorities", DEFAULT_ALERT_PRIORITIES
             ).items()
         }
-        self.temp_ttl = self.format_config.get("temp_ttl", self.DEFAULT_TEMP_TTL)
-        self.display_duration_base = self.format_config.get(
-            "display_duration_base", self.DISPLAY_DURATION_BASE
+        self.temp_ttl = _coerce_number(
+            self.format_config.get("temp_ttl"), self.DEFAULT_TEMP_TTL, int, "temp_ttl"
         )
-        self.display_duration_per_char = self.format_config.get(
-            "display_duration_per_char", self.DISPLAY_DURATION_PER_CHAR
+        self.display_duration_base = _coerce_number(
+            self.format_config.get("display_duration_base"),
+            self.DISPLAY_DURATION_BASE,
+            float,
+            "display_duration_base",
+        )
+        self.display_duration_per_char = _coerce_number(
+            self.format_config.get("display_duration_per_char"),
+            self.DISPLAY_DURATION_PER_CHAR,
+            float,
+            "display_duration_per_char",
         )
 
     def format_temperature_for_display(self, temp_f: float | None) -> str:
@@ -178,15 +220,24 @@ class KurokuuFormatTransform:
 
         return [(key, display_value, self.temp_ttl)]
 
-    def _get_alert_priority(self, event: str) -> int:
+    def _get_alert_priority(
+        self,
+        event: str,
+        severity: str | None = None,
+        urgency: str | None = None,
+    ) -> int:
         """
         Get priority level for an alert event.
 
         Matches event text case-insensitively against configured priority mappings.
-        Falls back to priority 5 (lowest) if no match found.
+        If no keyword matches, falls back to the CAP severity field
+        (Extreme/Severe/Moderate/Minor/Unknown). When the CAP fallback is used and
+        urgency is "Immediate", the priority is bumped up one level (minimum 0).
 
         Args:
             event: Alert event string (e.g., "Severe Thunderstorm Warning")
+            severity: CAP severity (Extreme, Severe, Moderate, Minor, Unknown)
+            urgency: CAP urgency (Immediate, Expected, Future, Past, Unknown)
 
         Returns:
             Priority level (0 = highest)
@@ -195,7 +246,11 @@ class KurokuuFormatTransform:
         for keyword, priority in self.alert_priorities.items():
             if keyword in event_lower:
                 return priority
-        return 5  # Default low priority
+
+        priority = CAP_SEVERITY_PRIORITIES.get((severity or "").lower(), 5)
+        if (urgency or "").lower() == "immediate":
+            priority = max(0, priority - 1)
+        return priority
 
     def _calculate_display_duration(self, message: str) -> str:
         """
@@ -248,7 +303,9 @@ class KurokuuFormatTransform:
                     continue  # Skip expired alerts
 
                 message = alert.event
-                priority = self._get_alert_priority(alert.event)
+                priority = self._get_alert_priority(
+                    alert.event, alert.severity, alert.urgency
+                )
                 display_duration = self._calculate_display_duration(message)
 
                 value = json.dumps(

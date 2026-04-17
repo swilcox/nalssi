@@ -25,6 +25,25 @@ from app.services.weather_apis.openweather import OpenWeatherClient
 logger = structlog.get_logger()
 
 
+def _run_coro_sync(coro):
+    """
+    Run an async coroutine from a synchronous context (e.g. APScheduler thread).
+
+    Uses asyncio.run when the current thread has no running loop. If a loop
+    is already running in this thread, offloads to a worker thread so we
+    don't try to nest event loops.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        return executor.submit(asyncio.run, coro).result()
+
+
 class WeatherCollector:
     """
     Collects weather data for enabled locations and stores in database.
@@ -537,20 +556,7 @@ class WeatherCollector:
 
     def collect_all_forecasts_sync(self) -> dict[str, int]:
         """Synchronous wrapper for collect_all_forecasts() for use with APScheduler."""
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run, self.collect_all_forecasts()
-                    )
-                    return future.result()
-            else:
-                return loop.run_until_complete(self.collect_all_forecasts())
-        except RuntimeError:
-            return asyncio.run(self.collect_all_forecasts())
+        return _run_coro_sync(self.collect_all_forecasts())
 
     def collect_all_sync(self) -> dict[str, int]:
         """
@@ -559,22 +565,7 @@ class WeatherCollector:
         Returns:
             Dictionary with collection statistics
         """
-        try:
-            # Try to get existing event loop
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If loop is running (e.g., in tests), create a new task
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, self.collect_all())
-                    return future.result()
-            else:
-                # No running loop, safe to use asyncio.run
-                return loop.run_until_complete(self.collect_all())
-        except RuntimeError:
-            # No event loop at all
-            return asyncio.run(self.collect_all())
+        return _run_coro_sync(self.collect_all())
 
 
 # Global collector instance
