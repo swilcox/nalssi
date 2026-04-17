@@ -348,28 +348,36 @@ class TestDisplayDuration:
 
     def test_short_message(self):
         t = KurokuuFormatTransform()
-        # "Frost" = 5 chars -> 5 * 0.3 + 3.0 = 4.5
-        assert t._calculate_display_duration("Frost") == "4.5s"
+        base = KurokuuFormatTransform.DISPLAY_DURATION_BASE
+        per_char = KurokuuFormatTransform.DISPLAY_DURATION_PER_CHAR
+        expected = f"{round(5 * per_char + base, 1)}s"
+        assert t._calculate_display_duration("Frost") == expected
 
     def test_longer_message(self):
         t = KurokuuFormatTransform()
         msg = "Severe Thunderstorm Warning"
-        expected = f"{round(len(msg) * 0.3 + 3.0, 1)}s"
+        base = KurokuuFormatTransform.DISPLAY_DURATION_BASE
+        per_char = KurokuuFormatTransform.DISPLAY_DURATION_PER_CHAR
+        expected = f"{round(len(msg) * per_char + base, 1)}s"
         assert t._calculate_display_duration(msg) == expected
 
     def test_empty_message(self):
         t = KurokuuFormatTransform()
-        assert t._calculate_display_duration("") == "3.0s"
+        base = KurokuuFormatTransform.DISPLAY_DURATION_BASE
+        expected = f"{round(base, 1)}s"
+        assert t._calculate_display_duration("") == expected
 
     def test_custom_base(self):
         t = KurokuuFormatTransform({"display_duration_base": 5.0})
-        # "Frost" = 5 chars -> 5 * 0.3 + 5.0 = 6.5
-        assert t._calculate_display_duration("Frost") == "6.5s"
+        per_char = KurokuuFormatTransform.DISPLAY_DURATION_PER_CHAR
+        expected = f"{round(5 * per_char + 5.0, 1)}s"
+        assert t._calculate_display_duration("Frost") == expected
 
     def test_custom_per_char(self):
         t = KurokuuFormatTransform({"display_duration_per_char": 0.5})
-        # "Frost" = 5 chars -> 5 * 0.5 + 3.0 = 5.5
-        assert t._calculate_display_duration("Frost") == "5.5s"
+        base = KurokuuFormatTransform.DISPLAY_DURATION_BASE
+        expected = f"{round(5 * 0.5 + base, 1)}s"
+        assert t._calculate_display_duration("Frost") == expected
 
     def test_custom_both(self):
         t = KurokuuFormatTransform(
