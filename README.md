@@ -84,6 +84,52 @@ uv run pytest -m integration    # Integration tests only
 uv run pytest --no-cov -q       # Quick run without coverage
 ```
 
+## Kurokku Alert Priorities
+
+When writing alerts to a Redis backend using the `kurokku` format, each alert is assigned a numeric priority (0 = highest, 5 = lowest) that the kurokku LED clock uses to decide display order.
+
+Priority is determined in this order:
+
+1. **Event keyword match** — the alert's `event` text is matched case-insensitively against the table below. First match wins.
+2. **CAP severity fallback** — if no keyword matches, the alert's CAP `severity` field (from NOAA) maps to a priority.
+3. **Urgency bump** — if the CAP fallback was used and `urgency` is `Immediate`, priority is bumped up by one level (minimum 0).
+4. **Default** — priority 5 if nothing else matches.
+
+**Event keyword mapping (defaults):**
+
+| Priority | Events |
+|---------:|--------|
+| 0 | tornado, tsunami, extreme wind, hurricane, typhoon, storm surge |
+| 1 | flash flood, severe thunderstorm, blizzard, ice storm |
+| 2 | flood, winter storm, high wind, excessive heat, fire weather |
+| 3 | wind chill, freeze, frost, heat advisory, wind advisory, dense fog |
+| 4 | winter weather, special weather |
+
+**CAP severity fallback (when no keyword matches):**
+
+| CAP Severity | Priority |
+|--------------|---------:|
+| Extreme | 1 |
+| Severe  | 2 |
+| Moderate | 3 |
+| Minor   | 4 |
+| Unknown | 5 |
+
+### Overriding priorities per backend
+
+The default mapping can be overridden on a per-backend basis by setting `alert_priorities` in the backend's Format Config JSON:
+
+```json
+{
+  "alert_priorities": {
+    "tornado": 0,
+    "my custom event": 1
+  }
+}
+```
+
+Matching is case-insensitive substring matching against the alert's event text. When overriding, the *entire* default table is replaced — include every keyword you want matched.
+
 ## Testing Kurokku Devices
 
 The `scripts/fake_alerts.py` tool pushes fake weather alerts directly to a kurokku device's Redis instance, bypassing the normal collection pipeline. Useful for verifying alert display timing, priority ordering, and scrolling behavior on LED clocks.
