@@ -1,6 +1,6 @@
 [project]
 name = "nalssi"
-version = "0.4.0"
+version = "0.5.0"
 description = "Weather data collection and distribution service"
 requires-python = ">=3.11"
 dependencies = [
