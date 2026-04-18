@@ -1,7 +1,13 @@
-<h1>Weather Dashboard</h1>
+<div class="page-heading">
+    <div>
+        <p class="page-eyebrow">Telemetry Dashboard</p>
+        <h1>Weather Dashboard</h1>
+        <p class="page-subtitle">Live local observations, alerts, and source status from configured weather providers.</p>
+    </div>
+</div>
 
 {% if not locations %}
-<p>No locations configured. <a href="/locations">Add a location</a> to get started.</p>
+<div class="empty-state">No locations configured. <a href="/locations">Add a location</a> to get started.</div>
 {% else %}
 <div class="weather-grid" id="weather-grid" hx-ext="ws" ws-connect="/ws/weather">
     {% for item in locations %}

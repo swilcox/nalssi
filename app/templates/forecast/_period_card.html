@@ -1,43 +1,43 @@
-<article class="weather-card" style="padding: 1rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+<article class="weather-card forecast-card">
+    <div class="forecast-card-header">
         <strong>{{ period.date_label }}</strong>
         {% if period.is_daytime is not none %}
-        <span class="badge {% if period.is_daytime %}badge-success{% else %}badge-muted{% endif %}" style="font-size: 0.7rem;">
+        <span class="badge {% if period.is_daytime %}badge-success{% else %}badge-muted{% endif %}">
             {{ "Day" if period.is_daytime else "Night" }}
         </span>
         {% endif %}
     </div>
 
     {% if period.temperature_fahrenheit is not none %}
-    <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.25rem;">
-        <span style="font-size: 2rem; font-weight: 700;">{{ "%.0f" | format(period.temperature_fahrenheit) }}&deg;F</span>
+    <div class="temp-row">
+        <span class="forecast-temp">{{ "%.0f" | format(period.temperature_fahrenheit) }}&deg;F</span>
         {% if period.temperature is not none %}
-        <span style="font-size: 1rem; color: var(--pico-muted-color);">{{ "%.1f" | format(period.temperature) }}&deg;C</span>
+        <span class="forecast-temp-secondary">{{ "%.1f" | format(period.temperature) }}&deg;C</span>
         {% endif %}
     </div>
     {% endif %}
 
     {% if period.condition_text %}
-    <div style="color: var(--pico-muted-color); margin-bottom: 0.5rem;">{{ period.condition_text }}</div>
+    <div class="forecast-condition">{{ period.condition_text }}</div>
     {% endif %}
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; font-size: 0.85rem; color: var(--pico-muted-color);">
+    <div class="forecast-details">
         {% if period.precipitation_probability is not none %}
-        <span>Precip: {{ period.precipitation_probability }}%</span>
+        <span class="metric-pill">Precip: {{ period.precipitation_probability }}%</span>
         {% endif %}
         {% if period.wind_speed is not none %}
-        <span>Wind: {{ "%.1f" | format(period.wind_speed) }} m/s</span>
+        <span class="metric-pill">Wind: {{ "%.1f" | format(period.wind_speed) }} m/s</span>
         {% endif %}
         {% if period.humidity is not none %}
-        <span>Humidity: {{ period.humidity }}%</span>
+        <span class="metric-pill">Humidity: {{ period.humidity }}%</span>
         {% endif %}
         {% if period.wind_direction is not none %}
-        <span>Dir: {{ period.wind_direction }}&deg;</span>
+        <span class="metric-pill">Dir: {{ period.wind_direction }}&deg;</span>
         {% endif %}
     </div>
 
     {% if period.detailed_forecast %}
-    <hr style="margin: 0.5rem 0 0.4rem; border: none; border-top: 1px solid var(--pico-muted-border-color);">
+    <hr>
     <p style="white-space: pre-line; font-size: 0.85rem; margin: 0;">{{ period.detailed_forecast }}</p>
     {% endif %}
 </article>

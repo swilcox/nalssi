@@ -1,9 +1,15 @@
 <div hx-ext="ws" ws-connect="/ws/weather">
-<h1>Active Alerts <small id="alert-page-count" style="font-size: 1rem; color: var(--pico-muted-color);">({{ alert_count }})</small></h1>
+<div class="page-heading">
+    <div>
+        <p class="page-eyebrow">Risk Monitor</p>
+        <h1>Active Alerts <small id="alert-page-count">({{ alert_count }})</small></h1>
+        <p class="page-subtitle">Current alert traffic by severity, urgency, and source.</p>
+    </div>
+</div>
 
 <div id="alert-list-container">
 {% if not alerts %}
-<p>No active weather alerts.</p>
+<div class="empty-state">No active weather alerts.</div>
 {% else %}
 <div class="alert-list">
     {% for alert in alerts %}

@@ -1,11 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Output Backends - 날씨{% endblock %}
 {% block content %}
-<h1>Output Backends</h1>
+<div class="page-heading">
+    <div>
+        <p class="page-eyebrow">Distribution</p>
+        <h1>Output Backends</h1>
+        <p class="page-subtitle">Route collected weather data into local services and display formats.</p>
+    </div>
+</div>
 
 {% include "backends/_add_form.html" %}
 
-<figure>
+<figure class="table-shell">
 <table>
     <thead>
         <tr>
@@ -27,6 +33,6 @@
 </figure>
 
 {% if not backends %}
-<p>No output backends configured yet.</p>
+<div class="empty-state">No output backends configured yet.</div>
 {% endif %}
 {% endblock %}

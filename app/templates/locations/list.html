@@ -1,11 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Locations - 날씨{% endblock %}
 {% block content %}
-<h1>Locations</h1>
+<div class="page-heading">
+    <div>
+        <p class="page-eyebrow">Collection Targets</p>
+        <h1>Locations</h1>
+        <p class="page-subtitle">Configure coordinates, provider preferences, and polling cadence.</p>
+    </div>
+</div>
 
 {% include "locations/_add_form.html" %}
 
-<figure>
+<figure class="table-shell">
 <table>
     <thead>
         <tr>
@@ -29,6 +35,6 @@
 </figure>
 
 {% if not locations %}
-<p>No locations configured yet.</p>
+<div class="empty-state">No locations configured yet.</div>
 {% endif %}
 {% endblock %}
