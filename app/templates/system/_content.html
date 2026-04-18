@@ -1,9 +1,16 @@
 <div hx-ext="ws" ws-connect="/ws/weather">
-<h1>System Status</h1>
+<div class="page-heading">
+    <div>
+        <p class="page-eyebrow">Operations</p>
+        <h1>System Status</h1>
+        <p class="page-subtitle">Collector health, scheduler timing, and recent location telemetry.</p>
+    </div>
+</div>
 
 {% include "system/_stats.html" %}
 
 <h2>Health</h2>
+<figure class="table-shell">
 <table>
     <tbody>
         <tr>
@@ -16,9 +23,11 @@
         </tr>
     </tbody>
 </table>
+</figure>
 
 <h2>Scheduler</h2>
 {% if scheduler_jobs %}
+<figure class="table-shell">
 <table>
     <thead>
         <tr>
@@ -35,12 +44,14 @@
         {% endfor %}
     </tbody>
 </table>
+</figure>
 {% else %}
-<p>No scheduled jobs. Scheduler may be disabled.</p>
+<div class="empty-state">No scheduled jobs. Scheduler may be disabled.</div>
 {% endif %}
 
 <h2>Last Collection Per Location</h2>
 {% if last_collections %}
+<figure class="table-shell">
 <table>
     <thead>
         <tr>
@@ -52,7 +63,8 @@
     </thead>
     {% include "system/_collections.html" %}
 </table>
+</figure>
 {% else %}
-<p>No locations configured.</p>
+<div class="empty-state">No locations configured.</div>
 {% endif %}
 </div>

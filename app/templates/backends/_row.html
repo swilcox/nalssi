@@ -17,8 +17,7 @@
     </td>
     <td>
         <span id="backend-status-{{ backend.id }}">
-            <button class="outline secondary"
-                    style="padding:0.15rem 0.5rem;font-size:0.8rem;"
+            <button class="outline secondary compact-button"
                     hx-post="/backends/{{ backend.id }}/test"
                     hx-target="#backend-status-{{ backend.id }}"
                     hx-swap="innerHTML">Test</button>
