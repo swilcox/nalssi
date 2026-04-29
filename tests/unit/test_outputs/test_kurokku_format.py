@@ -252,6 +252,25 @@ class TestAlertPriority:
         assert t._get_alert_priority("Other Event") == 3
         assert t._get_alert_priority("Tornado Warning") == 5  # Not in custom
 
+    def test_longest_keyword_wins(self):
+        # More specific keyword beats a more general one regardless of dict order.
+        custom = {
+            "severe thunderstorm": 1,
+            "severe thunderstorm watch": 3,
+        }
+        t = KurokuuFormatTransform({"alert_priorities": custom})
+        assert t._get_alert_priority("Severe Thunderstorm Watch") == 3
+        assert t._get_alert_priority("Severe Thunderstorm Warning") == 1
+
+        # And the same when the general keyword is declared after the specific one.
+        reversed_custom = {
+            "severe thunderstorm watch": 3,
+            "severe thunderstorm": 1,
+        }
+        t = KurokuuFormatTransform({"alert_priorities": reversed_custom})
+        assert t._get_alert_priority("Severe Thunderstorm Watch") == 3
+        assert t._get_alert_priority("Severe Thunderstorm Warning") == 1
+
     def test_cap_severity_fallback(self):
         t = KurokuuFormatTransform()
         unmatched = "Unusual Weather Event"

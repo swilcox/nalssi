@@ -25,15 +25,30 @@ DEFAULT_ALERT_PRIORITIES = {
     "flash flood": 1,
     "severe thunderstorm": 1,
     "blizzard": 1,
-    "ice storm": 1,
+    "ice storm": 2,
     "flood": 2,
     "winter storm": 2,
     "high wind": 2,
     "excessive heat": 2,
     "fire weather": 2,
+    "tornado watch": 2,
+    "tsunami watch": 3,
+    "storm surge watch": 3,
+    "hurricane watch": 3,
+    "typhoon watch": 3,
+    "severe thunderstorm watch": 3,
+    "flash flood watch": 3,
+    "flood watch": 3,
+    "blizzard watch": 3,
+    "ice storm watch": 3,
+    "winter storm watch": 3,
+    "high wind watch": 3,
+    "excessive heat watch": 3,
+    "fire weather watch": 3,
     "wind chill": 3,
     "freeze": 3,
     "frost": 3,
+    "cold weather advisory": 3,
     "heat advisory": 3,
     "wind advisory": 3,
     "dense fog": 3,
@@ -230,9 +245,12 @@ class KurokuuFormatTransform:
         Get priority level for an alert event.
 
         Matches event text case-insensitively against configured priority mappings.
-        If no keyword matches, falls back to the CAP severity field
-        (Extreme/Severe/Moderate/Minor/Unknown). When the CAP fallback is used and
-        urgency is "Immediate", the priority is bumped up one level (minimum 0).
+        When multiple keywords match (e.g. "severe thunderstorm" and
+        "severe thunderstorm watch"), the longest match wins so specificity
+        beats configuration order. If no keyword matches, falls back to the
+        CAP severity field (Extreme/Severe/Moderate/Minor/Unknown). When the
+        CAP fallback is used and urgency is "Immediate", the priority is
+        bumped up one level (minimum 0).
 
         Args:
             event: Alert event string (e.g., "Severe Thunderstorm Warning")
@@ -243,9 +261,14 @@ class KurokuuFormatTransform:
             Priority level (0 = highest)
         """
         event_lower = event.lower()
+        best_match: tuple[int, int] | None = None  # (keyword length, priority)
         for keyword, priority in self.alert_priorities.items():
-            if keyword in event_lower:
-                return priority
+            if keyword in event_lower and (
+                best_match is None or len(keyword) > best_match[0]
+            ):
+                best_match = (len(keyword), priority)
+        if best_match is not None:
+            return best_match[1]
 
         priority = CAP_SEVERITY_PRIORITIES.get((severity or "").lower(), 5)
         if (urgency or "").lower() == "immediate":

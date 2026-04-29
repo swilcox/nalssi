@@ -90,7 +90,7 @@ When writing alerts to a Redis backend using the `kurokku` format, each alert is
 
 Priority is determined in this order:
 
-1. **Event keyword match** — the alert's `event` text is matched case-insensitively against the table below. First match wins.
+1. **Event keyword match** — the alert's `event` text is matched case-insensitively against the table below. When multiple keywords match (e.g. `severe thunderstorm` and `severe thunderstorm watch`), the longest keyword wins so more specific entries beat more general ones regardless of config order.
 2. **CAP severity fallback** — if no keyword matches, the alert's CAP `severity` field (from NOAA) maps to a priority.
 3. **Urgency bump** — if the CAP fallback was used and `urgency` is `Immediate`, priority is bumped up by one level (minimum 0).
 4. **Default** — priority 5 if nothing else matches.
@@ -100,10 +100,12 @@ Priority is determined in this order:
 | Priority | Events |
 |---------:|--------|
 | 0 | tornado, tsunami, extreme wind, hurricane, typhoon, storm surge |
-| 1 | flash flood, severe thunderstorm, blizzard, ice storm |
-| 2 | flood, winter storm, high wind, excessive heat, fire weather |
-| 3 | wind chill, freeze, frost, heat advisory, wind advisory, dense fog |
+| 1 | flash flood, severe thunderstorm, blizzard |
+| 2 | flood, winter storm, high wind, ice storm, excessive heat, fire weather |
+| 3 | wind chill, freeze, frost, cold weather advisory, heat advisory, wind advisory, dense fog |
 | 4 | winter weather, special weather |
+
+**Watches:** All Watch events (e.g. `severe thunderstorm watch`, `hurricane watch`, `flood watch`) are mapped to priority **3**, with one exception: `tornado watch` is priority **2** due to its short lead time and life-safety risk. Because the matcher prefers the longest matching keyword, Watch events resolve to these Watch-specific entries rather than inheriting their Warning's priority.
 
 **CAP severity fallback (when no keyword matches):**
 
