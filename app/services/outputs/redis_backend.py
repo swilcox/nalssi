@@ -62,22 +62,25 @@ class RedisOutputBackend(BaseOutputBackend):
             )
         return self._client
 
+    # Refresh an existing key's TTL only when it's drifted by more than this
+    # many seconds. The TTL we compute is `expires - now`, which decreases by
+    # ~one collection interval each cycle even when the alert is unchanged;
+    # tolerating a small drift avoids issuing an EXPIRE every cycle.
+    _TTL_REFRESH_THRESHOLD_S = 60
+
     async def write(
         self,
         location: Location,
         weather_data: WeatherData | None,
-        alerts: list[WeatherAlert],
+        alerts: list[WeatherAlert] | None,
     ) -> WriteResult:
         """
         Write weather data and alerts to Redis.
 
-        Args:
-            location: Location model instance
-            weather_data: Normalized weather data
-            alerts: List of active weather alerts
-
-        Returns:
-            WriteResult with operation details
+        Alert syncing is diff-based: only keys that changed are written, only
+        keys that disappeared upstream are deleted, and unchanged keys whose
+        TTL has drifted significantly get an EXPIRE refresh. ``alerts=None``
+        signals an upstream fetch failure — alert keys are left untouched.
         """
         if not self.transform:
             return WriteResult(
@@ -111,29 +114,20 @@ class RedisOutputBackend(BaseOutputBackend):
                     e,
                 )
 
-        # Write alerts
-        try:
-            delete_patterns, alert_entries = self.transform.format_alerts(
-                location, alerts
-            )
-
-            # Delete old alert keys
-            for pattern in delete_patterns:
-                async for key in client.scan_iter(match=pattern):
-                    await client.delete(key)
-                    keys_deleted += 1
-
-            # Write new alert keys
-            for key, value, ttl in alert_entries:
-                await client.set(key, value, ex=ttl)
-                keys_written += 1
-        except Exception as e:
-            errors.append(f"Alert write failed: {e}")
-            logger.error(
-                "Failed to write alerts to Redis for %s: %s",
-                location.name,
-                e,
-            )
+        # Sync alerts. When alerts is None the upstream fetch failed, so leave
+        # whatever keys are already in Redis alone — they'll TTL out naturally.
+        if alerts is not None:
+            try:
+                w, d = await self._sync_alerts(client, location, alerts)
+                keys_written += w
+                keys_deleted += d
+            except Exception as e:
+                errors.append(f"Alert sync failed: {e}")
+                logger.error(
+                    "Failed to sync alerts to Redis for %s: %s",
+                    location.name,
+                    e,
+                )
 
         success = len(errors) == 0
         return WriteResult(
@@ -143,6 +137,56 @@ class RedisOutputBackend(BaseOutputBackend):
             keys_deleted=keys_deleted,
             errors=errors,
         )
+
+    async def _sync_alerts(
+        self,
+        client: aioredis.Redis,
+        location: Location,
+        alerts: list[WeatherAlert],
+    ) -> tuple[int, int]:
+        """
+        Reconcile Redis alert keys with the desired set from the transform.
+
+        Returns:
+            Tuple of (keys_written, keys_deleted). Unchanged keys (same value,
+            similar TTL) are not counted in either — they cost only a GET.
+        """
+        prefix, desired = self.transform.format_alerts(location, alerts)
+        if not prefix:
+            return 0, 0
+
+        existing_keys: set[str] = set()
+        async for key in client.scan_iter(match=f"{prefix}*"):
+            existing_keys.add(key)
+
+        desired_keys = set(desired.keys())
+        keys_written = 0
+        keys_deleted = 0
+
+        # Delete keys for alerts that disappeared upstream.
+        for key in existing_keys - desired_keys:
+            await client.delete(key)
+            keys_deleted += 1
+
+        for key, (value, ttl) in desired.items():
+            if key in existing_keys:
+                existing_value = await client.get(key)
+                if existing_value == value:
+                    # Value unchanged. Refresh TTL only if the wall-clock
+                    # expiry has shifted enough to matter (e.g. NOAA extended
+                    # the alert), so we don't spam EXPIRE every cycle.
+                    current_ttl = await client.ttl(key)
+                    if (
+                        current_ttl is None
+                        or current_ttl < 0
+                        or abs(ttl - current_ttl) > self._TTL_REFRESH_THRESHOLD_S
+                    ):
+                        await client.expire(key, ttl)
+                    continue
+            await client.set(key, value, ex=ttl)
+            keys_written += 1
+
+        return keys_written, keys_deleted
 
     async def test_connection(self) -> bool:
         """Test Redis connectivity."""

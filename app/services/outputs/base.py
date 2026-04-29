@@ -39,7 +39,7 @@ class BaseOutputBackend(ABC):
         self,
         location: Location,
         weather_data: WeatherData | None,
-        alerts: list[WeatherAlert],
+        alerts: list[WeatherAlert] | None,
     ) -> WriteResult:
         """
         Write weather data and alerts to the backend.
@@ -47,7 +47,10 @@ class BaseOutputBackend(ABC):
         Args:
             location: Location model instance
             weather_data: Normalized weather data (may be None)
-            alerts: List of active weather alerts
+            alerts: Active weather alerts from the upstream fetch.
+                ``None`` means the upstream fetch failed and the alert state
+                is unknown — backends should leave any existing alert state
+                untouched. ``[]`` means upstream confirmed no active alerts.
 
         Returns:
             WriteResult with operation details

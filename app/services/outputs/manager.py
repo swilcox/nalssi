@@ -166,7 +166,7 @@ class OutputManager:
         config: OutputBackendConfig,
         location: Location,
         weather_data: WeatherData | None,
-        alerts: list[WeatherAlert],
+        alerts: list[WeatherAlert] | None,
     ) -> WriteResult:
         """
         Write to a single backend with timeout protection.
@@ -241,7 +241,7 @@ class OutputManager:
         db: Session,
         location: Location,
         weather_data: WeatherData | None,
-        alerts: list[WeatherAlert],
+        alerts: list[WeatherAlert] | None,
     ) -> list[WriteResult]:
         """
         Distribute weather data to all matching backends concurrently.
@@ -253,7 +253,10 @@ class OutputManager:
             db: Database session for querying backend configs
             location: Location model instance
             weather_data: Normalized weather data (may be None)
-            alerts: List of active weather alerts
+            alerts: Active weather alerts from the upstream fetch.
+                ``None`` signals the upstream fetch failed and backends should
+                preserve any existing alert state. ``[]`` means upstream
+                confirmed there are no active alerts.
 
         Returns:
             List of WriteResult from each backend

@@ -4,6 +4,7 @@ Kurokku format transform for led-kurokku Redis integration.
 Produces Redis keys/values in the exact format that led-kurokku expects.
 """
 
+import hashlib
 import json
 from datetime import UTC, datetime
 
@@ -97,7 +98,11 @@ class KurokuuFormatTransform:
 
     Redis key patterns:
         Temperature: kurokku:weather:{slug}:temp = "44°F"  (TTL 3600s)
-        Alerts: kurokku:alert:weather:{slug}:{index} = JSON  (TTL from expiration)
+        Alerts: kurokku:alert:weather:{slug}:{alert_hash} = JSON  (TTL from expiration)
+
+    Alert key suffixes are a stable hash of the alert id so that diff-based
+    sync can detect which alerts are new, changed, or gone without rewriting
+    the full set every collection cycle.
     """
 
     DEFAULT_TEMP_TTL = 3600  # 1 hour
@@ -290,20 +295,37 @@ class KurokuuFormatTransform:
         ) + self.display_duration_base
         return f"{round(duration, 1)}s"
 
+    @staticmethod
+    def _alert_key_suffix(alert: WeatherAlert) -> str:
+        # Stable, opaque, redis-safe per-alert suffix. SHA-1 truncated to 12
+        # hex chars gives a ~48-bit space — collision-safe for any realistic
+        # number of concurrent alerts per slug. When the upstream alert has
+        # no id (non-NOAA providers), fall back to a content hash so each
+        # alert still gets a distinct key.
+        if alert.alert_id:
+            seed = alert.alert_id
+        else:
+            seed = f"{alert.event}|{alert.severity}|{alert.effective.isoformat()}"
+        return hashlib.sha1(seed.encode("utf-8")).hexdigest()[:12]
+
     def format_alerts(
         self, location: Location, alerts: list[WeatherAlert]
-    ) -> tuple[list[str], list[tuple[str, str, int]]]:
+    ) -> tuple[str, dict[str, tuple[str, int]]]:
         """
-        Format alerts into Redis key/value/ttl tuples.
+        Build the desired Redis alert key state for a location.
 
         Args:
             location: Location model instance (must have slug)
             alerts: List of active weather alerts
 
         Returns:
-            Tuple of (delete_patterns, [(key, value, ttl)])
-            - delete_patterns: glob patterns of keys to delete before writing
-            - list of (key, value, ttl) tuples for new alert keys
+            Tuple of (prefix, desired) where:
+            - prefix: glob prefix matching all alert keys for this location
+              (e.g. "kurokku:alert:weather:{slug}:"). Empty string if the
+              location has no slug — caller should skip alert sync.
+            - desired: mapping of full Redis key -> (value_json, ttl_seconds)
+              for every alert that should currently exist. Caller diffs this
+              against existing keys to compute the minimum set of writes.
         """
         slug = location.slug
         if not slug:
@@ -311,16 +333,14 @@ class KurokuuFormatTransform:
                 "Location %s has no slug, skipping alert write",
                 location.name,
             )
-            return [], []
+            return "", {}
 
-        delete_patterns = [f"kurokku:alert:weather:{slug}:*"]
-        entries = []
-
+        prefix = f"kurokku:alert:weather:{slug}:"
+        desired: dict[str, tuple[str, int]] = {}
         now = datetime.now(UTC)
 
         for index, alert in enumerate(alerts):
             try:
-                # Calculate TTL from expiration time
                 ttl = int((alert.expires - now).total_seconds())
                 if ttl <= 0:
                     continue  # Skip expired alerts
@@ -341,8 +361,8 @@ class KurokuuFormatTransform:
                     }
                 )
 
-                key = f"kurokku:alert:weather:{slug}:{index}"
-                entries.append((key, value, ttl))
+                key = prefix + self._alert_key_suffix(alert)
+                desired[key] = (value, ttl)
             except Exception:
                 logger.warning(
                     "Failed to format alert %d for location %s, skipping",
@@ -351,4 +371,4 @@ class KurokuuFormatTransform:
                     exc_info=True,
                 )
 
-        return delete_patterns, entries
+        return prefix, desired

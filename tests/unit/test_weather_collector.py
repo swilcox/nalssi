@@ -516,3 +516,130 @@ async def test_alert_upsert_mixed_new_and_existing(db_session):
     # alert-2 should be newly inserted
     assert alerts[1].alert_id == "alert-2"
     assert alerts[1].event == "Wind Advisory"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_alert_disappearing_upstream_is_soft_expired(db_session):
+    """Alerts that drop out of the upstream feed (cancellation/supersedure)
+    should have expires=now() so the UI's active-alerts filter agrees with
+    upstream, while the row stays in the DB for history."""
+    location = Location(
+        name="Test Location",
+        latitude=37.7749,
+        longitude=-122.4194,
+        country_code="US",
+        enabled=True,
+    )
+    db_session.add(location)
+    db_session.commit()
+    db_session.refresh(location)
+
+    now = datetime.now(timezone.utc)
+    mock_weather = APIWeatherData(
+        temperature=20.0,
+        temperature_fahrenheit=68.0,
+        timestamp=now,
+        condition_text="Sunny",
+    )
+    cancelled = WeatherAlert(
+        alert_id="urn:test:cancelled",
+        event="Severe Thunderstorm Warning",
+        headline="Severe Thunderstorm Warning",
+        description="Storms incoming.",
+        severity="Severe",
+        urgency="Immediate",
+        effective=now,
+        expires=now + timedelta(hours=2),
+        areas=["Test County"],
+    )
+
+    collector = WeatherCollector()
+    collector.noaa_client.get_current_weather = AsyncMock(return_value=mock_weather)
+    collector.noaa_client.get_alerts = AsyncMock(return_value=[cancelled])
+
+    await collector._collect_for_location(db_session, location)
+    db_session.commit()
+
+    stored = (
+        db_session.query(Alert)
+        .filter(Alert.alert_id == "urn:test:cancelled")
+        .one()
+    )
+    original_expires = stored.expires
+
+    # Next collection cycle: NOAA no longer returns the alert.
+    collector.noaa_client.get_alerts = AsyncMock(return_value=[])
+    before_soft_expire = datetime.now(timezone.utc).replace(tzinfo=None)
+    await collector._collect_for_location(db_session, location)
+    db_session.commit()
+    after_soft_expire = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    db_session.refresh(stored)
+    # expires should be roughly "now" (UTC), well below the original 2h window.
+    assert before_soft_expire <= stored.expires <= after_soft_expire
+    assert stored.expires < original_expires
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_failed_alert_fetch_does_not_soft_expire(db_session):
+    """When the upstream alert fetch raises, we know nothing about state, so
+    existing alerts must be left alone (not soft-expired)."""
+    location = Location(
+        name="Test Location",
+        latitude=37.7749,
+        longitude=-122.4194,
+        country_code="US",
+        enabled=True,
+    )
+    db_session.add(location)
+    db_session.commit()
+    db_session.refresh(location)
+
+    now = datetime.now(timezone.utc)
+    mock_weather = APIWeatherData(
+        temperature=20.0,
+        temperature_fahrenheit=68.0,
+        timestamp=now,
+        condition_text="Sunny",
+    )
+    existing = WeatherAlert(
+        alert_id="urn:test:keepalive",
+        event="Flood Warning",
+        headline="Flood Warning",
+        description="Flooding ongoing.",
+        severity="Severe",
+        urgency="Immediate",
+        effective=now,
+        expires=now + timedelta(hours=2),
+        areas=["Test County"],
+    )
+
+    collector = WeatherCollector()
+    collector.noaa_client.get_current_weather = AsyncMock(return_value=mock_weather)
+    collector.noaa_client.get_alerts = AsyncMock(return_value=[existing])
+
+    await collector._collect_for_location(db_session, location)
+    db_session.commit()
+
+    stored = (
+        db_session.query(Alert)
+        .filter(Alert.alert_id == "urn:test:keepalive")
+        .one()
+    )
+    expires_before = stored.expires
+
+    # Upstream fetch fails on the next cycle.
+    collector.noaa_client.get_alerts = AsyncMock(
+        side_effect=ConnectionError("upstream unreachable")
+    )
+    dist_item = await collector._collect_for_location(db_session, location)
+    db_session.commit()
+
+    db_session.refresh(stored)
+    assert stored.expires == expires_before  # untouched
+    # Distribution payload should have alerts=None so backends preserve state.
+    assert dist_item is not None
+    _loc, _wd, alerts_for_dist = dist_item
+    assert alerts_for_dist is None

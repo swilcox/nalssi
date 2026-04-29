@@ -187,8 +187,11 @@ class WeatherCollector:
 
         db.add(db_weather)
 
-        # Fetch and store weather alerts
-        alerts = []
+        # Fetch and store weather alerts. `alerts_for_distribution` stays None
+        # if the upstream fetch fails so backends know to leave existing alert
+        # state alone instead of treating "we don't know" as "no alerts".
+        alerts: list = []
+        alerts_for_distribution: list | None = None
         try:
             alerts = await client.get_alerts(location.latitude, location.longitude)
             new_count = 0
@@ -306,12 +309,36 @@ class WeatherCollector:
                         headline=alert.headline,
                     )
 
+            # Soft-expire any DB alerts that didn't come back from upstream:
+            # NOAA cancellations / supersedures drop alerts from the active
+            # feed before their original expires time. Setting expires=now()
+            # makes the UI's "active alerts" filter agree with upstream and
+            # preserves the row for history.
+            fetched_ids = {a.alert_id for a in alerts}
+            now_utc = datetime.now(UTC)
+            stale_query = db.query(Alert).filter(
+                Alert.location_id == location.id,
+                Alert.source_api == client.name,
+                Alert.expires > now_utc,
+            )
+            if fetched_ids:
+                stale_query = stale_query.filter(
+                    Alert.alert_id.notin_(fetched_ids)
+                )
+            stale_count = 0
+            for stale in stale_query.all():
+                stale.expires = now_utc
+                stale_count += 1
+
+            alerts_for_distribution = alerts
+
             logger.info(
                 "Alert check complete",
                 location_name=location.name,
                 location_id=str(location.id),
                 new_alerts=new_count,
                 updated_alerts=updated_count,
+                stale_expired=stale_count,
                 total_fetched=len(alerts),
             )
         except Exception:
@@ -321,7 +348,8 @@ class WeatherCollector:
                 location_id=str(location.id),
                 exc_info=True,
             )
-            # Don't fail the whole collection if alerts fail
+            # Don't fail the whole collection if alerts fail. alerts_for_distribution
+            # stays None so backends preserve their existing alert state.
 
         logger.info(
             "Weather data stored",
@@ -331,8 +359,10 @@ class WeatherCollector:
             source_api=client.name,
         )
 
-        # Return distribution work item for batched concurrent execution
-        return (location, weather_data, alerts)
+        # Return distribution work item for batched concurrent execution.
+        # alerts_for_distribution is None when the upstream fetch failed; backends
+        # interpret that as "leave existing alert state alone".
+        return (location, weather_data, alerts_for_distribution)
 
     async def _broadcast_updates(self, db: Session) -> None:
         """Broadcast updated dashboard cards and alerts to WebSocket clients."""

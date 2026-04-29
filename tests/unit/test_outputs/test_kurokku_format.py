@@ -31,7 +31,9 @@ def _make_weather(temp_f=44.0, temp_c=6.7, humidity=65, condition_text="Clear"):
     )
 
 
-def _make_alert(event="Severe Thunderstorm Warning", hours_until_expiry=2):
+def _make_alert(
+    event="Severe Thunderstorm Warning", hours_until_expiry=2, alert_id=None
+):
     """Create a WeatherAlert instance."""
     now = datetime.now(UTC)
     return WeatherAlert(
@@ -43,6 +45,7 @@ def _make_alert(event="Severe Thunderstorm Warning", hours_until_expiry=2):
         effective=now - timedelta(hours=1),
         expires=now + timedelta(hours=hours_until_expiry),
         areas=["Test County"],
+        alert_id=alert_id or f"urn:test:{event}",
     )
 
 
@@ -408,34 +411,65 @@ class TestDisplayDuration:
 
 @pytest.mark.unit
 class TestFormatAlerts:
-    """Tests for alert key/value/ttl generation."""
+    """Tests for alert key/value/ttl generation (diff-friendly shape)."""
 
-    def test_produces_delete_pattern(self):
+    def test_produces_prefix(self):
         t = KurokuuFormatTransform()
         location = _make_location(slug="spring_hill")
         alerts = [_make_alert()]
 
-        delete_patterns, _entries = t.format_alerts(location, alerts)
-        assert delete_patterns == ["kurokku:alert:weather:spring_hill:*"]
+        prefix, _desired = t.format_alerts(location, alerts)
+        assert prefix == "kurokku:alert:weather:spring_hill:"
 
-    def test_alert_key_format(self):
+    def test_alert_key_uses_stable_hash(self):
         t = KurokuuFormatTransform()
         location = _make_location(slug="spring_hill")
-        alerts = [_make_alert()]
+        alerts = [_make_alert(alert_id="urn:test:abc")]
 
-        _, entries = t.format_alerts(location, alerts)
-        assert len(entries) == 1
-        key, _value, ttl = entries[0]
-        assert key == "kurokku:alert:weather:spring_hill:0"
+        prefix, desired = t.format_alerts(location, alerts)
+        assert len(desired) == 1
+        key = next(iter(desired))
+        assert key.startswith(prefix)
+        # Suffix is opaque hex, length 12.
+        suffix = key[len(prefix):]
+        assert len(suffix) == 12
+        assert all(c in "0123456789abcdef" for c in suffix)
+
+        _value, ttl = desired[key]
         assert ttl > 0
+
+    def test_same_alert_id_produces_same_key(self):
+        """Stable keys are the whole point — re-formatting the same alert_id
+        must produce the same Redis key so diff-based sync can match it."""
+        t = KurokuuFormatTransform()
+        location = _make_location(slug="spring_hill")
+        a1 = _make_alert(alert_id="urn:test:same")
+        a2 = _make_alert(alert_id="urn:test:same", event="Tornado Warning")
+
+        _, d1 = t.format_alerts(location, [a1])
+        _, d2 = t.format_alerts(location, [a2])
+        assert next(iter(d1)) == next(iter(d2))
+
+    def test_distinct_alert_ids_produce_distinct_keys(self):
+        t = KurokuuFormatTransform()
+        location = _make_location(slug="test")
+        alerts = [
+            _make_alert(event="Tornado Warning", alert_id="urn:test:a"),
+            _make_alert(event="Flood Warning", alert_id="urn:test:b"),
+        ]
+
+        _, desired = t.format_alerts(location, alerts)
+        assert len(desired) == 2
+        assert len(set(desired.keys())) == 2
 
     def test_alert_value_format(self):
         t = KurokuuFormatTransform()
         location = _make_location()
         alerts = [_make_alert(event="Tornado Warning")]
 
-        _, entries = t.format_alerts(location, alerts)
-        data = json.loads(entries[0][1])
+        _, desired = t.format_alerts(location, alerts)
+        value, _ttl = next(iter(desired.values()))
+        data = json.loads(value)
 
         assert data["message"] == "Tornado Warning"
         assert data["priority"] == 0
@@ -443,51 +477,37 @@ class TestFormatAlerts:
         assert "timestamp" in data
         assert data["display_duration"].endswith("s")
 
-    def test_multiple_alerts_indexed(self):
-        t = KurokuuFormatTransform()
-        location = _make_location(slug="test")
-        alerts = [
-            _make_alert(event="Tornado Warning"),
-            _make_alert(event="Flood Warning"),
-        ]
-
-        _, entries = t.format_alerts(location, alerts)
-        assert len(entries) == 2
-        assert entries[0][0] == "kurokku:alert:weather:test:0"
-        assert entries[1][0] == "kurokku:alert:weather:test:1"
-
     def test_expired_alerts_skipped(self):
         t = KurokuuFormatTransform()
         location = _make_location()
         alerts = [_make_alert(hours_until_expiry=-1)]  # Already expired
 
-        _, entries = t.format_alerts(location, alerts)
-        assert entries == []
+        _, desired = t.format_alerts(location, alerts)
+        assert desired == {}
 
     def test_no_slug_returns_empty(self):
         t = KurokuuFormatTransform()
         location = _make_location(slug=None)
         alerts = [_make_alert()]
 
-        delete_patterns, entries = t.format_alerts(location, alerts)
-        assert delete_patterns == []
-        assert entries == []
+        prefix, desired = t.format_alerts(location, alerts)
+        assert prefix == ""
+        assert desired == {}
 
     def test_empty_alerts(self):
         t = KurokuuFormatTransform()
         location = _make_location()
-        delete_patterns, entries = t.format_alerts(location, [])
-        assert delete_patterns == ["kurokku:alert:weather:spring_hill:*"]
-        assert entries == []
+        prefix, desired = t.format_alerts(location, [])
+        assert prefix == "kurokku:alert:weather:spring_hill:"
+        assert desired == {}
 
     def test_alert_ttl_from_expiration(self):
         t = KurokuuFormatTransform()
         location = _make_location()
         alert = _make_alert(hours_until_expiry=1)
-        _, entries = t.format_alerts(location, [alert])
+        _, desired = t.format_alerts(location, [alert])
 
-        _, _, ttl = entries[0]
-        # Should be approximately 3600 seconds (1 hour)
+        _value, ttl = next(iter(desired.values()))
         assert 3500 < ttl <= 3600
 
     def test_malformed_alert_skipped_others_preserved(self):
@@ -495,14 +515,25 @@ class TestFormatAlerts:
         t = KurokuuFormatTransform()
         location = _make_location(slug="test")
 
-        good_alert = _make_alert(event="Tornado Warning")
-        bad_alert = MagicMock()
-        bad_alert.expires = None  # Will cause an exception in TTL calculation
-        good_alert_2 = _make_alert(event="Flood Warning")
+        good = _make_alert(event="Tornado Warning", alert_id="urn:test:good1")
+        bad = MagicMock()
+        bad.expires = None  # Will cause an exception in TTL calculation
+        good_2 = _make_alert(event="Flood Warning", alert_id="urn:test:good2")
 
-        _, entries = t.format_alerts(location, [good_alert, bad_alert, good_alert_2])
-        assert len(entries) == 2
-        data_0 = json.loads(entries[0][1])
-        data_1 = json.loads(entries[1][1])
-        assert data_0["message"] == "Tornado Warning"
-        assert data_1["message"] == "Flood Warning"
+        _, desired = t.format_alerts(location, [good, bad, good_2])
+        assert len(desired) == 2
+        messages = {json.loads(v)["message"] for v, _ in desired.values()}
+        assert messages == {"Tornado Warning", "Flood Warning"}
+
+    def test_fallback_key_when_alert_id_missing(self):
+        """Non-NOAA providers may emit alerts without an alert_id; we should
+        still produce a stable, content-derived key rather than a collision."""
+        t = KurokuuFormatTransform()
+        location = _make_location(slug="test")
+        a = _make_alert(event="Tornado Warning")
+        a.alert_id = None
+        b = _make_alert(event="Flood Warning")
+        b.alert_id = None
+
+        _, desired = t.format_alerts(location, [a, b])
+        assert len(desired) == 2  # distinct keys despite both having no alert_id

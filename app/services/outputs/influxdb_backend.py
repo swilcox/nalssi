@@ -117,7 +117,7 @@ class InfluxDBOutputBackend(BaseOutputBackend):
         self,
         location: Location,
         weather_data: WeatherData | None,
-        alerts: list[WeatherAlert],
+        alerts: list[WeatherAlert] | None,
     ) -> WriteResult:
         """Write weather data and alerts to InfluxDB."""
         points: list[Point] = []
@@ -125,8 +125,11 @@ class InfluxDBOutputBackend(BaseOutputBackend):
         if weather_data is not None:
             points.append(self._build_weather_point(location, weather_data))
 
-        for alert in alerts:
-            points.append(self._build_alert_point(location, alert))
+        # alerts=None signals the upstream fetch failed; skip alert points so
+        # we don't lose continuity in the time series.
+        if alerts is not None:
+            for alert in alerts:
+                points.append(self._build_alert_point(location, alert))
 
         if not points:
             return WriteResult(
