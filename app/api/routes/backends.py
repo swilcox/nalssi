@@ -174,7 +174,8 @@ async def test_backend_connection(config_id: UUID, db: Session = Depends(get_db)
             "success": success,
             "message": "Connection successful" if success else "Connection failed",
         }
-    except Exception as e:
-        return {"success": False, "message": str(e)}
+    except Exception:
+        logger.exception("backend_test_connection_failed", config_id=str(config_id))
+        return {"success": False, "message": "Connection failed"}
     finally:
         await backend.close()

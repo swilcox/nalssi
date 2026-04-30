@@ -5,6 +5,7 @@ Output backend configuration page routes.
 import json
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, Form, Request, Response
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,7 @@ from app.services.outputs.redis_backend import FORMAT_TRANSFORMS
 from app.templating import templates
 
 router = APIRouter()
+logger = structlog.get_logger()
 
 FORMAT_TYPE_CHOICES = [("", "(none)")] + [(key, key) for key in FORMAT_TRANSFORMS]
 
@@ -68,8 +70,8 @@ def _try_parse_json(value: str, field_name: str) -> tuple[str | None, str | None
     try:
         parsed = json.loads(value)
         return json.dumps(parsed), None
-    except json.JSONDecodeError as e:
-        return None, f"Invalid JSON in {field_name}: {e}"
+    except json.JSONDecodeError:
+        return None, f"Invalid JSON in {field_name}."
 
 
 def _build_location_filter(filter_mode: str, filter_locations: list[str]) -> str | None:
@@ -344,7 +346,8 @@ async def test_backend_connection(
             )
         else:
             return Response(content='<span class="badge badge-error">Failed</span>')
-    except Exception as e:
-        return Response(content=f'<span class="badge badge-error">{e}</span>')
+    except Exception:
+        logger.exception("backend_test_connection_failed", config_id=str(config_id))
+        return Response(content='<span class="badge badge-error">Failed</span>')
     finally:
         await backend.close()
