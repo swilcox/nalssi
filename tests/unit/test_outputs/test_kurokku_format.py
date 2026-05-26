@@ -244,6 +244,11 @@ class TestAlertPriority:
         assert t._get_alert_priority("Flash Flood Warning") == 1
         assert t._get_alert_priority("High Wind Warning") == 2
 
+    def test_flood_advisory_beats_generic_flood(self):
+        t = KurokuuFormatTransform()
+        assert t._get_alert_priority("Flood Advisory") == 3
+        assert t._get_alert_priority("Flood Warning") == 2
+
     def test_unknown_event_gets_low_priority(self):
         t = KurokuuFormatTransform()
         assert t._get_alert_priority("Unknown Weather Event") == 5

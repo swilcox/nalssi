@@ -52,6 +52,7 @@ DEFAULT_ALERT_PRIORITIES = {
     "cold weather advisory": 3,
     "heat advisory": 3,
     "wind advisory": 3,
+    "flood advisory": 3,
     "dense fog": 3,
     "winter weather": 4,
     "special weather": 4,
