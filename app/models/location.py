@@ -2,22 +2,29 @@
 Location model for storing geographic locations to monitor.
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
-    Column,
     DateTime,
     Float,
     Integer,
     String,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.alert import Alert
+    from app.models.forecast import Forecast
+    from app.models.weather import WeatherData
 
 
 class Location(Base):
@@ -27,28 +34,34 @@ class Location(Base):
 
     __tablename__ = "locations"
 
-    id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
         nullable=False,
     )
-    name = Column(String(255), nullable=False, index=True)
-    slug = Column(String(100), nullable=True, unique=True, index=True)
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
-    timezone = Column(String(100), nullable=True)
-    country_code = Column(String(2), nullable=False, index=True)
-    enabled = Column(Boolean, default=True, nullable=False)
-    collection_interval = Column(Integer, default=300, nullable=False)  # seconds
-    preferred_api = Column(String(50), nullable=True)  # noaa, open-meteo, etc.
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    slug: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, unique=True, index=True
+    )
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    timezone: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    collection_interval: Mapped[int] = mapped_column(
+        Integer, default=300, nullable=False
+    )  # seconds
+    preferred_api: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )  # noaa, open-meteo, etc.
 
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         nullable=False,
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
@@ -65,13 +78,13 @@ class Location(Base):
     )
 
     # Relationships
-    weather_data = relationship(
+    weather_data: Mapped[list[WeatherData]] = relationship(
         "WeatherData", back_populates="location", cascade="all, delete-orphan"
     )
-    alerts = relationship(
+    alerts: Mapped[list[Alert]] = relationship(
         "Alert", back_populates="location", cascade="all, delete-orphan"
     )
-    forecasts = relationship(
+    forecasts: Mapped[list[Forecast]] = relationship(
         "Forecast", back_populates="location", cascade="all, delete-orphan"
     )
 

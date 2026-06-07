@@ -315,9 +315,7 @@ class TestAlertPriority:
         t = KurokuuFormatTransform()
         # Tornado keyword wins even when CAP fields would suggest otherwise
         assert (
-            t._get_alert_priority(
-                "Tornado Warning", severity="Minor", urgency="Future"
-            )
+            t._get_alert_priority("Tornado Warning", severity="Minor", urgency="Future")
             == 0
         )
 
@@ -436,7 +434,7 @@ class TestFormatAlerts:
         key = next(iter(desired))
         assert key.startswith(prefix)
         # Suffix is opaque hex, length 12.
-        suffix = key[len(prefix):]
+        suffix = key[len(prefix) :]
         assert len(suffix) == 12
         assert all(c in "0123456789abcdef" for c in suffix)
 

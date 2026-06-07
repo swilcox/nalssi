@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import json
 import time
+from typing import Any, cast
 
 import structlog
 from sqlalchemy.orm import Session
@@ -32,11 +33,11 @@ CIRCUIT_BREAKER_THRESHOLD = 3  # failures before opening circuit
 CIRCUIT_BREAKER_COOLDOWN = 300  # seconds before retrying a tripped backend
 
 
-def _parse_json_field(value: str | None) -> dict | None:
+def _parse_json_field(value: str | None) -> dict[str, Any] | None:
     """Parse a JSON text field, returning None if empty/null."""
     if not value:
         return None
-    return json.loads(value)
+    return cast(dict[str, Any], json.loads(value))
 
 
 def _location_matches_filter(location: Location, location_filter: dict | None) -> bool:

@@ -186,9 +186,7 @@ class TestRedisOutputBackend:
         (existing_key, (existing_value, existing_ttl)) = next(iter(desired.items()))
 
         mock_client = AsyncMock()
-        mock_client.scan_iter = MagicMock(
-            return_value=AsyncIterator([existing_key])
-        )
+        mock_client.scan_iter = MagicMock(return_value=AsyncIterator([existing_key]))
         mock_client.get.return_value = existing_value
         # TTL within the refresh threshold — should not trigger EXPIRE either.
         mock_client.ttl.return_value = existing_ttl
@@ -223,9 +221,7 @@ class TestRedisOutputBackend:
         (existing_key, (existing_value, _ttl)) = next(iter(desired.items()))
 
         mock_client = AsyncMock()
-        mock_client.scan_iter = MagicMock(
-            return_value=AsyncIterator([existing_key])
-        )
+        mock_client.scan_iter = MagicMock(return_value=AsyncIterator([existing_key]))
         mock_client.get.return_value = existing_value
         mock_client.ttl.return_value = 60  # way below the desired ~7200
         backend._client = mock_client
@@ -252,9 +248,7 @@ class TestRedisOutputBackend:
         existing_key = next(iter(desired))
 
         mock_client = AsyncMock()
-        mock_client.scan_iter = MagicMock(
-            return_value=AsyncIterator([existing_key])
-        )
+        mock_client.scan_iter = MagicMock(return_value=AsyncIterator([existing_key]))
         mock_client.get.return_value = '{"message":"old payload"}'
         backend._client = mock_client
 

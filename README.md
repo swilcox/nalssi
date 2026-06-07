@@ -1,5 +1,13 @@
 # Nalssi
 
+[![CI](https://github.com/swilcox/nalssi/actions/workflows/ci.yml/badge.svg)](https://github.com/swilcox/nalssi/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/swilcox/nalssi/branch/main/graph/badge.svg)](https://codecov.io/gh/swilcox/nalssi)
+[![Docker](https://github.com/swilcox/nalssi/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/swilcox/nalssi/actions/workflows/docker-publish.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230.svg)](https://docs.astral.sh/ruff/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Nalssi (날씨, Korean for "weather") is a centralized weather data collection and distribution service. It fetches weather data from multiple free APIs on a schedule, stores it locally, and distributes it to configurable output backends — so your other applications can consume weather data without each making their own API calls.
 
 ## How It Works
@@ -179,6 +187,14 @@ The `--slug` flag defaults to `spring_hill_tn_noaa`. Override it to target a dif
 ```bash
 uv run ruff check .             # Lint
 uv run ruff format .            # Format
+uv run mypy app tests           # Type check
+```
+
+### Pre-commit
+
+```bash
+uv run pre-commit install       # Install the local Git hook
+uv run pre-commit run --all-files
 ```
 
 ## Configuration

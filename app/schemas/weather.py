@@ -13,9 +13,9 @@ class CurrentWeatherResponse(BaseModel):
 
     location_id: UUID
     location_name: str
-    temperature: float
-    temperature_fahrenheit: float
-    condition_text: str
+    temperature: float | None = None
+    temperature_fahrenheit: float | None = None
+    condition_text: str | None = None
     humidity: int | None = None
     pressure: float | None = None
     wind_speed: float | None = None

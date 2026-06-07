@@ -6,7 +6,9 @@ Periodically fetches weather data for all enabled locations and stores in databa
 
 import asyncio
 import json
+from collections.abc import Coroutine
 from datetime import UTC, datetime
+from typing import Any, TypeVar
 
 import structlog
 from sqlalchemy.orm import Session
@@ -24,8 +26,10 @@ from app.services.weather_apis.openweather import OpenWeatherClient
 
 logger = structlog.get_logger()
 
+T = TypeVar("T")
 
-def _run_coro_sync(coro):
+
+def _run_coro_sync(coro: Coroutine[Any, Any, T]) -> T:
     """
     Run an async coroutine from a synchronous context (e.g. APScheduler thread).
 
@@ -70,7 +74,7 @@ class WeatherCollector:
         db = SessionLocal()
         try:
             # Get all enabled locations
-            locations = db.query(Location).filter(Location.enabled == True).all()
+            locations = db.query(Location).filter(Location.enabled.is_(True)).all()
             stats["total_locations"] = len(locations)
 
             logger.info(
@@ -225,9 +229,7 @@ class WeatherCollector:
                             f"expires: {existing.expires} -> {alert.expires}"
                         )
                     if existing.event != alert.event:
-                        changes.append(
-                            f"event: {existing.event} -> {alert.event}"
-                        )
+                        changes.append(f"event: {existing.event} -> {alert.event}")
 
                     # Update mutable fields on the existing alert
                     existing.event = alert.event
@@ -244,9 +246,7 @@ class WeatherCollector:
                     existing.expires = alert.expires
                     existing.onset = alert.onset
                     existing.ends = alert.ends
-                    existing.areas = (
-                        json.dumps(alert.areas) if alert.areas else None
-                    )
+                    existing.areas = json.dumps(alert.areas) if alert.areas else None
                     existing.description = alert.description
                     existing.instruction = alert.instruction
                     existing.fetched_at = datetime.now(UTC)
@@ -289,9 +289,7 @@ class WeatherCollector:
                         expires=alert.expires,
                         onset=alert.onset,
                         ends=alert.ends,
-                        areas=(
-                            json.dumps(alert.areas) if alert.areas else None
-                        ),
+                        areas=(json.dumps(alert.areas) if alert.areas else None),
                         description=alert.description,
                         instruction=alert.instruction,
                     )
@@ -302,7 +300,7 @@ class WeatherCollector:
                         location_name=location.name,
                         location_id=str(location.id),
                         alert_id=alert.alert_id,
-                        event=alert.event,
+                        alert_event=alert.event,
                         severity=alert.severity,
                         urgency=alert.urgency,
                         expires=str(alert.expires) if alert.expires else None,
@@ -322,9 +320,7 @@ class WeatherCollector:
                 Alert.expires > now_utc,
             )
             if fetched_ids:
-                stale_query = stale_query.filter(
-                    Alert.alert_id.notin_(fetched_ids)
-                )
+                stale_query = stale_query.filter(Alert.alert_id.notin_(fetched_ids))
             stale_count = 0
             for stale in stale_query.all():
                 stale.expires = now_utc
@@ -467,7 +463,7 @@ class WeatherCollector:
 
         db = SessionLocal()
         try:
-            locations = db.query(Location).filter(Location.enabled == True).all()
+            locations = db.query(Location).filter(Location.enabled.is_(True)).all()
             stats["total_locations"] = len(locations)
 
             for location in locations:

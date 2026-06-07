@@ -117,7 +117,9 @@ class OpenWeatherClient(BaseWeatherClient):
             condition_text=weather_info.get("description", "Unknown"),
             condition_code=str(weather_info.get("id", "")),
             icon=weather_info.get("icon"),
-            humidity=int(main["humidity"]) if main.get("humidity") is not None else None,
+            humidity=int(main["humidity"])
+            if main.get("humidity") is not None
+            else None,
             pressure=main.get("pressure"),
             wind_speed=wind.get("speed"),
             wind_direction=wind_direction,
@@ -129,9 +131,7 @@ class OpenWeatherClient(BaseWeatherClient):
             raw_data=data,
         )
 
-    async def get_alerts(
-        self, latitude: float, longitude: float
-    ) -> list[WeatherAlert]:
+    async def get_alerts(self, latitude: float, longitude: float) -> list[WeatherAlert]:
         """
         Get weather alerts. Requires paid One Call API — not supported in free tier.
 

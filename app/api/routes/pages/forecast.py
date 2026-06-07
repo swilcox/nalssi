@@ -18,7 +18,12 @@ router = APIRouter()
 def build_forecast_items(db: Session) -> list[dict]:
     """Build forecast data grouped by location for display."""
     now = datetime.now(UTC)
-    locations = db.query(Location).filter(Location.enabled == True).order_by(Location.name).all()
+    locations = (
+        db.query(Location)
+        .filter(Location.enabled.is_(True))
+        .order_by(Location.name)
+        .all()
+    )
 
     items = []
     for loc in locations:

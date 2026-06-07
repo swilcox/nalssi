@@ -81,9 +81,7 @@ def build_dashboard_items(db: Session) -> list[dict]:
 def get_active_alert_count(db: Session) -> int:
     """Get total active alert count across all locations."""
     now = datetime.now(UTC)
-    return (
-        db.query(func.count(Alert.id)).filter(Alert.expires > now).scalar() or 0
-    )
+    return db.query(func.count(Alert.id)).filter(Alert.expires > now).scalar() or 0
 
 
 @router.get("/")

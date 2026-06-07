@@ -2,6 +2,9 @@
 Redis output backend implementation.
 """
 
+from collections.abc import Awaitable
+from typing import cast
+
 import redis.asyncio as aioredis
 import structlog
 
@@ -46,7 +49,7 @@ class RedisOutputBackend(BaseOutputBackend):
         # Set up format transform
         transform_cls = FORMAT_TRANSFORMS.get(format_type or "")
         if transform_cls:
-            self.transform = transform_cls(format_config)
+            self.transform: KurokuuFormatTransform | None = transform_cls(format_config)
         else:
             self.transform = None
 
@@ -151,6 +154,7 @@ class RedisOutputBackend(BaseOutputBackend):
             Tuple of (keys_written, keys_deleted). Unchanged keys (same value,
             similar TTL) are not counted in either — they cost only a GET.
         """
+        assert self.transform is not None
         prefix, desired = self.transform.format_alerts(location, alerts)
         if not prefix:
             return 0, 0
@@ -192,8 +196,10 @@ class RedisOutputBackend(BaseOutputBackend):
         """Test Redis connectivity."""
         try:
             client = self._get_client()
-            await client.ping()
-            return True
+            result = client.ping()
+            if isinstance(result, Awaitable):
+                result = await cast(Awaitable[bool], result)
+            return bool(result)
         except Exception as e:
             logger.error("Redis connection test failed for %s: %s", self.name, e)
             return False
@@ -201,5 +207,7 @@ class RedisOutputBackend(BaseOutputBackend):
     async def close(self) -> None:
         """Close the Redis connection."""
         if self._client:
-            await self._client.aclose()
+            result = self._client.aclose()
+            if isinstance(result, Awaitable):
+                await result
             self._client = None

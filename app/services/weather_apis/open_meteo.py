@@ -86,21 +86,26 @@ class OpenMeteoClient(BaseWeatherClient):
         """
         self.validate_coordinates(latitude, longitude)
 
-        params = {
+        params: dict[
+            str,
+            str | int | float | bool | None | list[str | int | float | bool | None],
+        ] = {
             "latitude": latitude,
             "longitude": longitude,
-            "current": ",".join([
-                "temperature_2m",
-                "relative_humidity_2m",
-                "apparent_temperature",
-                "precipitation",
-                "weather_code",
-                "cloud_cover",
-                "pressure_msl",
-                "wind_speed_10m",
-                "wind_direction_10m",
-                "wind_gusts_10m",
-            ]),
+            "current": ",".join(
+                [
+                    "temperature_2m",
+                    "relative_humidity_2m",
+                    "apparent_temperature",
+                    "precipitation",
+                    "weather_code",
+                    "cloud_cover",
+                    "pressure_msl",
+                    "wind_speed_10m",
+                    "wind_direction_10m",
+                    "wind_gusts_10m",
+                ]
+            ),
             "wind_speed_unit": "ms",
             "precipitation_unit": "mm",
         }
@@ -164,9 +169,7 @@ class OpenMeteoClient(BaseWeatherClient):
             raw_data=data,
         )
 
-    async def get_alerts(
-        self, latitude: float, longitude: float
-    ) -> list[WeatherAlert]:
+    async def get_alerts(self, latitude: float, longitude: float) -> list[WeatherAlert]:
         """
         Get weather alerts. Open-Meteo does not provide alerts.
 
@@ -190,23 +193,28 @@ class OpenMeteoClient(BaseWeatherClient):
         """
         self.validate_coordinates(latitude, longitude)
 
-        params = {
+        params: dict[
+            str,
+            str | int | float | bool | None | list[str | int | float | bool | None],
+        ] = {
             "latitude": latitude,
             "longitude": longitude,
-            "daily": ",".join([
-                "temperature_2m_max",
-                "temperature_2m_min",
-                "apparent_temperature_max",
-                "apparent_temperature_min",
-                "precipitation_sum",
-                "precipitation_probability_max",
-                "weather_code",
-                "wind_speed_10m_max",
-                "wind_gusts_10m_max",
-                "wind_direction_10m_dominant",
-                "relative_humidity_2m_max",
-                "uv_index_max",
-            ]),
+            "daily": ",".join(
+                [
+                    "temperature_2m_max",
+                    "temperature_2m_min",
+                    "apparent_temperature_max",
+                    "apparent_temperature_min",
+                    "precipitation_sum",
+                    "precipitation_probability_max",
+                    "weather_code",
+                    "wind_speed_10m_max",
+                    "wind_gusts_10m_max",
+                    "wind_direction_10m_dominant",
+                    "relative_humidity_2m_max",
+                    "uv_index_max",
+                ]
+            ),
             "wind_speed_unit": "ms",
             "precipitation_unit": "mm",
             "timezone": "UTC",
@@ -286,7 +294,9 @@ class OpenMeteoClient(BaseWeatherClient):
                     precipitation_amount=daily.get("precipitation_sum", [None])[i],
                     uv_index=uv_index,
                     condition_text=condition_text,
-                    condition_code=str(weather_code) if weather_code is not None else None,
+                    condition_code=str(weather_code)
+                    if weather_code is not None
+                    else None,
                     is_daytime=True,  # Daily summary represents the full day
                 )
             )

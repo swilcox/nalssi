@@ -7,6 +7,7 @@ and colored console output in development.
 
 import logging
 import sys
+from typing import cast
 
 import structlog
 
@@ -58,7 +59,7 @@ def setup_logging(log_level: str = "INFO", json_logs: bool = False) -> None:
     formatter = structlog.stdlib.ProcessorFormatter(
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-            add_logger_name_from_record,
+            cast(structlog.types.Processor, add_logger_name_from_record),
             structlog.stdlib.add_log_level,
             structlog.stdlib.ExtraAdder(),
             structlog.processors.TimeStamper(fmt="iso"),

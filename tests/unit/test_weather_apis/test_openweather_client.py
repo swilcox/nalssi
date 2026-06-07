@@ -44,9 +44,7 @@ async def test_openweather_get_current_weather_success(
     lat, lon = 35.6895, 139.6917
 
     respx_mock.get("https://api.openweathermap.org/data/2.5/weather").mock(
-        return_value=httpx.Response(
-            200, json=openweather_responses["weather_response"]
-        )
+        return_value=httpx.Response(200, json=openweather_responses["weather_response"])
     )
 
     weather = await openweather_client.get_current_weather(lat, lon)
@@ -76,9 +74,7 @@ async def test_openweather_get_current_weather_field_mapping(
     lat, lon = 35.6895, 139.6917
 
     respx_mock.get("https://api.openweathermap.org/data/2.5/weather").mock(
-        return_value=httpx.Response(
-            200, json=openweather_responses["weather_response"]
-        )
+        return_value=httpx.Response(200, json=openweather_responses["weather_response"])
     )
 
     weather = await openweather_client.get_current_weather(lat, lon)
@@ -145,9 +141,7 @@ async def test_openweather_get_current_weather_api_error(
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_openweather_get_current_weather_timeout(
-    openweather_client, respx_mock
-):
+async def test_openweather_get_current_weather_timeout(openweather_client, respx_mock):
     """Test handling of timeouts."""
     lat, lon = 35.6895, 139.6917
 

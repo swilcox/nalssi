@@ -11,8 +11,8 @@ from datetime import datetime
 class WeatherData:
     """Normalized weather data structure."""
 
-    temperature: float  # Celsius
-    temperature_fahrenheit: float
+    temperature: float | None  # Celsius
+    temperature_fahrenheit: float | None
     timestamp: datetime
     condition_text: str
     humidity: int | None = None

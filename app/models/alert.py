@@ -2,12 +2,15 @@
 Weather Alert model for storing weather alerts and warnings.
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 # CAP standard values for reference:
 # category: Met, Fire, Geo, Health, Env, Transport, Infra, CBRNE, Other
@@ -15,6 +18,9 @@ from sqlalchemy.orm import relationship
 # status: Actual, Exercise, System, Test, Draft
 # message_type: Alert, Update, Cancel, Ack, Error
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.location import Location
 
 
 class Alert(Base):
@@ -27,13 +33,13 @@ class Alert(Base):
 
     __tablename__ = "alerts"
 
-    id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
         nullable=False,
     )
-    location_id = Column(
+    location_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("locations.id", ondelete="CASCADE"),
         nullable=False,
@@ -41,76 +47,86 @@ class Alert(Base):
     )
 
     # Alert identification - used for deduplication
-    alert_id = Column(
+    alert_id: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
         index=True,
         comment="External alert ID from source API for deduplication",
     )
-    source_api = Column(String(50), nullable=False)  # noaa, open-meteo, etc.
+    source_api: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # noaa, open-meteo, etc.
 
     # Alert metadata
-    event = Column(String(255), nullable=False, index=True)  # e.g., "High Wind Warning"
-    headline = Column(String(500), nullable=False)
-    severity = Column(
+    event: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True
+    )  # e.g., "High Wind Warning"
+    headline: Mapped[str] = mapped_column(String(500), nullable=False)
+    severity: Mapped[str] = mapped_column(
         String(50), nullable=False
     )  # Extreme, Severe, Moderate, Minor, Unknown
-    urgency = Column(
+    urgency: Mapped[str] = mapped_column(
         String(50), nullable=False
     )  # Immediate, Expected, Future, Past, Unknown
-    certainty = Column(
+    certainty: Mapped[str | None] = mapped_column(
         String(50), nullable=True
     )  # Observed, Likely, Possible, Unlikely, Unknown
 
     # CAP classification fields
-    category = Column(
+    category: Mapped[str | None] = mapped_column(
         String(50), nullable=True
     )  # Met, Fire, Geo, Health, Env, Transport, etc.
-    response_type = Column(
+    response_type: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )  # Shelter, Evacuate, Prepare, Monitor, etc.
-    sender_name = Column(
+    sender_name: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )  # Issuing office (e.g., "NWS Tulsa OK")
-    status = Column(
+    status: Mapped[str | None] = mapped_column(
         String(50), nullable=True
     )  # Actual, Exercise, System, Test, Draft
-    message_type = Column(
+    message_type: Mapped[str | None] = mapped_column(
         String(50), nullable=True
     )  # Alert, Update, Cancel
 
     # Time information
-    effective = Column(
+    effective: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )  # When alert becomes effective
-    expires = Column(
+    expires: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )  # When alert expires
-    onset = Column(DateTime(timezone=True), nullable=True)  # Expected onset of event
-    ends = Column(DateTime(timezone=True), nullable=True)  # Expected end of event
+    onset: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )  # Expected onset of event
+    ends: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )  # Expected end of event
 
     # Geographic areas affected (JSON array stored as string)
-    areas = Column(Text, nullable=True)  # JSON array of area names
+    areas: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # JSON array of area names
 
     # Alert content
-    description = Column(Text, nullable=True)
-    instruction = Column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Metadata
-    fetched_at = Column(
+    fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         nullable=False,
         comment="When this alert was fetched and stored",
     )
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         nullable=False,
     )
 
     # Relationships
-    location = relationship("Location", back_populates="alerts")
+    location: Mapped[Location] = relationship("Location", back_populates="alerts")
 
     # Indexes for common queries
     __table_args__ = (
