@@ -10,6 +10,8 @@
 
 Nalssi (날씨, Korean for "weather") is a centralized weather data collection and distribution service. It fetches weather data from multiple free APIs on a schedule, stores it locally, and distributes it to configurable output backends — so your other applications can consume weather data without each making their own API calls.
 
+![Nalssi dashboard screenshot](docs/assets/screenshot.png)
+
 ## How It Works
 
 ```mermaid
