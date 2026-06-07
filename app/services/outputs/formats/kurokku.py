@@ -76,7 +76,7 @@ def _coerce_number(value, default, kind, field):
     """
     if value is None:
         return kind(default)
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return kind(value)
     if isinstance(value, str):
         stripped = value.strip().rstrip("sS").strip()

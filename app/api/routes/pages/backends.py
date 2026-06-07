@@ -274,6 +274,7 @@ def update_backend_config(
             },
         )
 
+    assert conn_json is not None
     location_filter = _build_location_filter(filter_mode, filter_locations)
 
     config.name = name.strip()

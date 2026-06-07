@@ -66,7 +66,7 @@ def verify_test_mode():
 
     print(f"\n✓ Tests using database: {settings.DATABASE_URL}")
     print(f"✓ Scheduler disabled: {not settings.ENABLE_SCHEDULER}")
-    print(f"✓ Test database will be cleaned up after tests")
+    print("✓ Test database will be cleaned up after tests")
 
     return settings
 
@@ -79,7 +79,7 @@ def create_app_tables():
     This is needed for integration tests that use the FastAPI test client,
     which uses the app's database engine (not the test db_engine fixture).
     """
-    from app.database import engine, Base
+    from app.database import Base, engine
 
     Base.metadata.create_all(bind=engine)
     yield
@@ -119,10 +119,10 @@ def db_session(db_engine):
     Create a database session for testing.
     Automatically rolls back after each test.
     """
-    TestingSessionLocal = sessionmaker(
+    testing_session_local = sessionmaker(
         autocommit=False, autoflush=False, bind=db_engine
     )
-    session = TestingSessionLocal()
+    session = testing_session_local()
     try:
         yield session
     finally:

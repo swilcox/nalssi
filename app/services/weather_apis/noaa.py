@@ -95,9 +95,7 @@ class NOAAWeatherClient(BaseWeatherClient):
                 obs_url = f"{station_url}/observations/latest"
 
                 try:
-                    response = await client.get(
-                        obs_url, headers=self._get_headers()
-                    )
+                    response = await client.get(obs_url, headers=self._get_headers())
                     response.raise_for_status()
                     obs_data = response.json()
                     last_obs_data = obs_data
@@ -235,6 +233,10 @@ class NOAAWeatherClient(BaseWeatherClient):
         expires = self._parse_timestamp(props.get("expires"))
         onset = self._parse_timestamp(props.get("onset"))
         ends = self._parse_timestamp(props.get("ends"))
+        if effective is None:
+            effective = datetime.now(UTC)
+        if expires is None:
+            expires = effective
 
         # Get areas affected
         areas = [props.get("areaDesc", "Unknown")]
@@ -347,18 +349,18 @@ class NOAAWeatherClient(BaseWeatherClient):
         wind_direction = self._compass_to_degrees(period.get("windDirection"))
 
         # Precipitation probability is in a {unitCode, value} wrapper
-        precip_prob = self._get_value(period.get("probabilityOfPrecipitation"))
+        precip_prob = self._get_value(period.get("probabilityOfPrecipitation") or {})
         if precip_prob is not None:
             precip_prob = int(precip_prob)
 
         # Humidity (hourly endpoint has it, regular forecast may not)
-        humidity = self._get_value(period.get("relativeHumidity"))
+        humidity = self._get_value(period.get("relativeHumidity") or {})
         if humidity is not None:
             humidity = int(humidity)
 
         return ForecastPeriod(
-            start_time=start_time,
-            end_time=end_time,
+            start_time=start_time or datetime.now(UTC),
+            end_time=end_time or start_time or datetime.now(UTC),
             temperature=temp_c,
             temperature_fahrenheit=temp_f,
             is_daytime=period.get("isDaytime"),
@@ -382,7 +384,7 @@ class NOAAWeatherClient(BaseWeatherClient):
         """
         if not value:
             return None
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             return float(value)
 
         numbers = re.findall(r"[\d.]+", str(value))
@@ -408,10 +410,22 @@ class NOAAWeatherClient(BaseWeatherClient):
         if not direction:
             return None
         compass = {
-            "N": 0, "NNE": 22, "NE": 45, "ENE": 67,
-            "E": 90, "ESE": 112, "SE": 135, "SSE": 157,
-            "S": 180, "SSW": 202, "SW": 225, "WSW": 247,
-            "W": 270, "WNW": 292, "NW": 315, "NNW": 337,
+            "N": 0,
+            "NNE": 22,
+            "NE": 45,
+            "ENE": 67,
+            "E": 90,
+            "ESE": 112,
+            "SE": 135,
+            "SSE": 157,
+            "S": 180,
+            "SSW": 202,
+            "SW": 225,
+            "WSW": 247,
+            "W": 270,
+            "WNW": 292,
+            "NW": 315,
+            "NNW": 337,
         }
         return compass.get(direction.upper())
 

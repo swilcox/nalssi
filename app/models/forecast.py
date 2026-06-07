@@ -2,12 +2,14 @@
 Forecast model for storing weather forecast periods.
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
-    Column,
     DateTime,
     Float,
     ForeignKey,
@@ -17,9 +19,12 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.location import Location
 
 
 class Forecast(Base):
@@ -32,61 +37,79 @@ class Forecast(Base):
 
     __tablename__ = "forecasts"
 
-    id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
         nullable=False,
     )
-    location_id = Column(
+    location_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("locations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    source_api = Column(String(50), nullable=False)
+    source_api: Mapped[str] = mapped_column(String(50), nullable=False)
 
     # Time range for this forecast period
-    start_time = Column(DateTime(timezone=True), nullable=False)
-    end_time = Column(DateTime(timezone=True), nullable=False)
+    start_time: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     # Conditions
-    temperature = Column(Float, nullable=True)  # Celsius (high for day, low for night)
-    temperature_fahrenheit = Column(Float, nullable=True)
-    temp_low = Column(Float, nullable=True)  # Celsius (for daily periods)
-    temp_low_fahrenheit = Column(Float, nullable=True)
-    feels_like = Column(Float, nullable=True)  # Celsius
-    humidity = Column(Integer, nullable=True)  # percentage
-    pressure = Column(Float, nullable=True)  # hPa
-    wind_speed = Column(Float, nullable=True)  # m/s
-    wind_direction = Column(Integer, nullable=True)  # degrees
-    wind_gust = Column(Float, nullable=True)  # m/s
-    precipitation_probability = Column(Integer, nullable=True)  # percentage
-    precipitation_amount = Column(Float, nullable=True)  # mm
-    cloud_cover = Column(Integer, nullable=True)  # percentage
-    visibility = Column(Integer, nullable=True)  # meters
-    uv_index = Column(Float, nullable=True)
+    temperature: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )  # Celsius (high for day, low for night)
+    temperature_fahrenheit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    temp_low: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )  # Celsius (for daily periods)
+    temp_low_fahrenheit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    feels_like: Mapped[float | None] = mapped_column(Float, nullable=True)  # Celsius
+    humidity: Mapped[int | None] = mapped_column(Integer, nullable=True)  # percentage
+    pressure: Mapped[float | None] = mapped_column(Float, nullable=True)  # hPa
+    wind_speed: Mapped[float | None] = mapped_column(Float, nullable=True)  # m/s
+    wind_direction: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )  # degrees
+    wind_gust: Mapped[float | None] = mapped_column(Float, nullable=True)  # m/s
+    precipitation_probability: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )  # percentage
+    precipitation_amount: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )  # mm
+    cloud_cover: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )  # percentage
+    visibility: Mapped[int | None] = mapped_column(Integer, nullable=True)  # meters
+    uv_index: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Descriptions
-    condition_text = Column(String(255), nullable=True)  # e.g. "Partly Cloudy"
-    condition_code = Column(String(50), nullable=True)
-    is_daytime = Column(Boolean, nullable=True)
-    detailed_forecast = Column(Text, nullable=True)  # NOAA narrative paragraph
+    condition_text: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )  # e.g. "Partly Cloudy"
+    condition_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    is_daytime: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    detailed_forecast: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # NOAA narrative paragraph
 
     # Metadata
-    fetched_at = Column(
+    fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         nullable=False,
     )
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         nullable=False,
     )
 
     # Relationships
-    location = relationship("Location", back_populates="forecasts")
+    location: Mapped[Location] = relationship("Location", back_populates="forecasts")
 
     __table_args__ = (
         # Find forecast periods for a location within a time range

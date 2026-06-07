@@ -2,6 +2,8 @@
 InfluxDB output backend implementation.
 """
 
+from typing import cast
+
 import structlog
 from influxdb_client import WritePrecision
 from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
@@ -96,7 +98,7 @@ class InfluxDBOutputBackend(BaseOutputBackend):
             point = point.field("condition", weather_data.condition_text)
 
         point = point.time(weather_data.timestamp, WritePrecision.S)
-        return point
+        return cast(Point, point)
 
     def _build_alert_point(self, location: Location, alert: WeatherAlert) -> Point:
         """Build an InfluxDB Point from a weather alert."""
@@ -111,7 +113,7 @@ class InfluxDBOutputBackend(BaseOutputBackend):
             .field("active", 1)
             .time(alert.effective, WritePrecision.S)
         )
-        return point
+        return cast(Point, point)
 
     async def write(
         self,

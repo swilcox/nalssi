@@ -3,7 +3,7 @@ Database configuration and session management.
 """
 
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.config import settings
 
@@ -40,8 +40,10 @@ if "sqlite" in settings.DATABASE_URL:
 # Create SessionLocal class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 # Create Base class for declarative models
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 
 def get_db():

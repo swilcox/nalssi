@@ -50,8 +50,8 @@ def pg_engine():
 @pytest.fixture(scope="function")
 def pg_session(pg_engine):
     """Create a PostgreSQL session that rolls back after each test."""
-    Session = sessionmaker(bind=pg_engine)
-    session = Session()
+    session_factory = sessionmaker(bind=pg_engine)
+    session = session_factory()
     try:
         yield session
     finally:
@@ -142,17 +142,13 @@ class TestLocationCRUD:
         assert pg_session.get(Location, loc_id) is None
 
     def test_latitude_check_constraint(self, pg_session):
-        loc = Location(
-            name="Invalid", latitude=100.0, longitude=0.0, country_code="US"
-        )
+        loc = Location(name="Invalid", latitude=100.0, longitude=0.0, country_code="US")
         pg_session.add(loc)
         with pytest.raises(IntegrityError):
             pg_session.commit()
 
     def test_longitude_check_constraint(self, pg_session):
-        loc = Location(
-            name="Invalid", latitude=0.0, longitude=200.0, country_code="US"
-        )
+        loc = Location(name="Invalid", latitude=0.0, longitude=200.0, country_code="US")
         pg_session.add(loc)
         with pytest.raises(IntegrityError):
             pg_session.commit()
@@ -232,9 +228,7 @@ class TestWeatherData:
         pg_session.add(loc)
         pg_session.commit()
 
-        weather = WeatherData(
-            location_id=loc.id, source_api="noaa", temperature=15.0
-        )
+        weather = WeatherData(location_id=loc.id, source_api="noaa", temperature=15.0)
         pg_session.add(weather)
         pg_session.commit()
         weather_id = weather.id
@@ -281,18 +275,18 @@ class TestWeatherData:
 class TestAlerts:
     def _make_alert(self, location_id, alert_id="ALERT-001", **kwargs):
         now = datetime.now(UTC)
-        defaults = dict(
-            location_id=location_id,
-            alert_id=alert_id,
-            source_api="noaa",
-            event="High Wind Warning",
-            headline="Winds up to 60 mph expected",
-            severity="Severe",
-            urgency="Immediate",
-            certainty="Likely",
-            effective=now,
-            expires=now + timedelta(hours=6),
-        )
+        defaults = {
+            "location_id": location_id,
+            "alert_id": alert_id,
+            "source_api": "noaa",
+            "event": "High Wind Warning",
+            "headline": "Winds up to 60 mph expected",
+            "severity": "Severe",
+            "urgency": "Immediate",
+            "certainty": "Likely",
+            "effective": now,
+            "expires": now + timedelta(hours=6),
+        }
         defaults.update(kwargs)
         return Alert(**defaults)
 
@@ -357,11 +351,9 @@ class TestAlerts:
         assert json.loads(alert.areas) == ["Multnomah County", "Washington County"]
 
     def test_alert_relationship(self, pg_session, location):
-        for i in range(2):
+        for _ in range(2):
             pg_session.add(
-                self._make_alert(
-                    location.id, alert_id=f"REL-{uuid.uuid4().hex[:6]}"
-                )
+                self._make_alert(location.id, alert_id=f"REL-{uuid.uuid4().hex[:6]}")
             )
         pg_session.commit()
         pg_session.refresh(location)
@@ -377,18 +369,18 @@ class TestForecasts:
     def _make_forecast(self, location_id, offset_hours=0, **kwargs):
         now = datetime.now(UTC)
         start = now + timedelta(hours=offset_hours)
-        defaults = dict(
-            location_id=location_id,
-            source_api="noaa",
-            start_time=start,
-            end_time=start + timedelta(hours=12),
-            temperature=25.0,
-            temperature_fahrenheit=77.0,
-            humidity=50,
-            wind_speed=4.0,
-            condition_text="Mostly Sunny",
-            is_daytime=True,
-        )
+        defaults = {
+            "location_id": location_id,
+            "source_api": "noaa",
+            "start_time": start,
+            "end_time": start + timedelta(hours=12),
+            "temperature": 25.0,
+            "temperature_fahrenheit": 77.0,
+            "humidity": 50,
+            "wind_speed": 4.0,
+            "condition_text": "Mostly Sunny",
+            "is_daytime": True,
+        }
         defaults.update(kwargs)
         return Forecast(**defaults)
 

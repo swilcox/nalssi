@@ -5,6 +5,7 @@ Following TDD: Write tests first, then implement.
 """
 
 import json
+from contextlib import suppress
 from pathlib import Path
 
 import httpx
@@ -123,7 +124,7 @@ async def test_noaa_get_current_weather_api_error(noaa_client, respx_mock):
         return_value=httpx.Response(500, text="Internal Server Error")
     )
 
-    with pytest.raises(Exception):  # Should raise an API error
+    with pytest.raises(httpx.HTTPStatusError):
         await noaa_client.get_current_weather(lat, lon)
 
 
@@ -209,10 +210,8 @@ async def test_noaa_client_sets_user_agent(noaa_client, respx_mock):
     route = respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}")
     route.mock(return_value=httpx.Response(404))  # We just want to check headers
 
-    try:
+    with suppress(httpx.HTTPStatusError):
         await noaa_client.get_current_weather(lat, lon)
-    except Exception:
-        pass  # We expect this to fail, we just want to check the request
 
     # Verify User-Agent was set
     assert route.called
@@ -233,9 +232,7 @@ async def test_noaa_get_forecast(noaa_client, noaa_responses, respx_mock):
     )
 
     # Mock the forecast endpoint
-    respx_mock.get(
-        "https://api.weather.gov/gridpoints/MTR/90,112/forecast"
-    ).mock(
+    respx_mock.get("https://api.weather.gov/gridpoints/MTR/90,112/forecast").mock(
         return_value=httpx.Response(200, json=noaa_responses["forecast_response"])
     )
 
@@ -284,12 +281,8 @@ async def test_noaa_get_forecast_empty(noaa_client, noaa_responses, respx_mock):
     respx_mock.get(f"https://api.weather.gov/points/{lat},{lon}").mock(
         return_value=httpx.Response(200, json=noaa_responses["points_response"])
     )
-    respx_mock.get(
-        "https://api.weather.gov/gridpoints/MTR/90,112/forecast"
-    ).mock(
-        return_value=httpx.Response(
-            200, json={"properties": {"periods": []}}
-        )
+    respx_mock.get("https://api.weather.gov/gridpoints/MTR/90,112/forecast").mock(
+        return_value=httpx.Response(200, json={"properties": {"periods": []}})
     )
 
     periods = await noaa_client.get_forecast(lat, lon)

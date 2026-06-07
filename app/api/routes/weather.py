@@ -314,9 +314,7 @@ async def get_alerts(
     "/locations/{location_id}/weather/forecast",
     response_model=ForecastResponse,
 )
-async def get_forecast(
-    location_id: UUID, db: Session = Depends(get_db)
-):
+async def get_forecast(location_id: UUID, db: Session = Depends(get_db)):
     """
     Get weather forecast for a location.
 

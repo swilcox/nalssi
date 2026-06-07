@@ -82,21 +82,37 @@ DEFAULT_TTL = 300  # 5 minutes
 DEFAULT_REDIS_URL = "redis://localhost:6379/0"
 
 
-def calc_display_duration(message: str, base: float = DISPLAY_DURATION_BASE, per_char: float = DISPLAY_DURATION_PER_CHAR) -> str:
+def calc_display_duration(
+    message: str,
+    base: float = DISPLAY_DURATION_BASE,
+    per_char: float = DISPLAY_DURATION_PER_CHAR,
+) -> str:
     duration = len(message) * per_char + base
     return f"{round(duration, 1)}s"
 
 
-def build_alert_entry(event: str, priority: int, ttl: int, slug: str, index: int, duration_base: float = DISPLAY_DURATION_BASE, duration_per_char: float = DISPLAY_DURATION_PER_CHAR):
+def build_alert_entry(
+    event: str,
+    priority: int,
+    ttl: int,
+    slug: str,
+    index: int,
+    duration_base: float = DISPLAY_DURATION_BASE,
+    duration_per_char: float = DISPLAY_DURATION_PER_CHAR,
+):
     now = datetime.now(UTC)
     key = f"kurokku:alert:weather:{slug}:{index}"
-    value = json.dumps({
-        "timestamp": now.isoformat(),
-        "message": event,
-        "priority": priority,
-        "display_duration": calc_display_duration(event, duration_base, duration_per_char),
-        "delete_after_display": False,
-    })
+    value = json.dumps(
+        {
+            "timestamp": now.isoformat(),
+            "message": event,
+            "priority": priority,
+            "display_duration": calc_display_duration(
+                event, duration_base, duration_per_char
+            ),
+            "delete_after_display": False,
+        }
+    )
     return key, value, ttl
 
 
@@ -110,20 +126,60 @@ def clear_alerts(client: redis.Redis, slug: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Push fake alerts to Redis for kurokuu testing")
-    parser.add_argument("--scenario", choices=list(SCENARIOS.keys()) + ["custom"], default="severe",
-                        help="Alert scenario to push (default: severe)")
-    parser.add_argument("--slug", default=DEFAULT_SLUG, help=f"Location slug (default: {DEFAULT_SLUG})")
-    parser.add_argument("--ttl", type=int, default=DEFAULT_TTL, help=f"Alert TTL in seconds (default: {DEFAULT_TTL})")
-    parser.add_argument("--redis-url", default=DEFAULT_REDIS_URL, help=f"Redis URL (default: {DEFAULT_REDIS_URL})")
-    parser.add_argument("--clear", action="store_true", help="Clear all fake alerts for the slug and exit")
-    parser.add_argument("--event", help="Custom event text (use with --scenario custom)")
-    parser.add_argument("--priority", type=int, default=5, help="Custom priority 0-5 (use with --scenario custom)")
-    parser.add_argument("--duration-base", type=float, default=DISPLAY_DURATION_BASE,
-                        help=f"Display duration base in seconds (default: {DISPLAY_DURATION_BASE})")
-    parser.add_argument("--duration-per-char", type=float, default=DISPLAY_DURATION_PER_CHAR,
-                        help=f"Display duration per character in seconds (default: {DISPLAY_DURATION_PER_CHAR})")
-    parser.add_argument("--dry-run", action="store_true", help="Print what would be written without connecting to Redis")
+    parser = argparse.ArgumentParser(
+        description="Push fake alerts to Redis for kurokuu testing"
+    )
+    parser.add_argument(
+        "--scenario",
+        choices=list(SCENARIOS.keys()) + ["custom"],
+        default="severe",
+        help="Alert scenario to push (default: severe)",
+    )
+    parser.add_argument(
+        "--slug", default=DEFAULT_SLUG, help=f"Location slug (default: {DEFAULT_SLUG})"
+    )
+    parser.add_argument(
+        "--ttl",
+        type=int,
+        default=DEFAULT_TTL,
+        help=f"Alert TTL in seconds (default: {DEFAULT_TTL})",
+    )
+    parser.add_argument(
+        "--redis-url",
+        default=DEFAULT_REDIS_URL,
+        help=f"Redis URL (default: {DEFAULT_REDIS_URL})",
+    )
+    parser.add_argument(
+        "--clear",
+        action="store_true",
+        help="Clear all fake alerts for the slug and exit",
+    )
+    parser.add_argument(
+        "--event", help="Custom event text (use with --scenario custom)"
+    )
+    parser.add_argument(
+        "--priority",
+        type=int,
+        default=5,
+        help="Custom priority 0-5 (use with --scenario custom)",
+    )
+    parser.add_argument(
+        "--duration-base",
+        type=float,
+        default=DISPLAY_DURATION_BASE,
+        help=f"Display duration base in seconds (default: {DISPLAY_DURATION_BASE})",
+    )
+    parser.add_argument(
+        "--duration-per-char",
+        type=float,
+        default=DISPLAY_DURATION_PER_CHAR,
+        help=f"Display duration per character in seconds (default: {DISPLAY_DURATION_PER_CHAR})",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would be written without connecting to Redis",
+    )
 
     args = parser.parse_args()
 
@@ -144,7 +200,15 @@ def main():
 
         print(f"Would write {len(alerts)} alert(s) to {args.redis_url}:\n")
         for i, alert in enumerate(alerts):
-            key, value, ttl = build_alert_entry(alert["event"], alert["priority"], args.ttl, args.slug, i, args.duration_base, args.duration_per_char)
+            key, value, ttl = build_alert_entry(
+                alert["event"],
+                alert["priority"],
+                args.ttl,
+                args.slug,
+                i,
+                args.duration_base,
+                args.duration_per_char,
+            )
             parsed = json.loads(value)
             print(f"  Key: {key}")
             print(f"  TTL: {ttl}s")
@@ -157,7 +221,9 @@ def main():
         client = redis.from_url(args.redis_url, decode_responses=True)
         client.ping()
     except redis.ConnectionError as e:
-        print(f"Error: Cannot connect to Redis at {args.redis_url}: {e}", file=sys.stderr)
+        print(
+            f"Error: Cannot connect to Redis at {args.redis_url}: {e}", file=sys.stderr
+        )
         sys.exit(1)
 
     # Clear mode
@@ -173,10 +239,20 @@ def main():
 
     # Write alerts
     for i, alert in enumerate(alerts):
-        key, value, ttl = build_alert_entry(alert["event"], alert["priority"], args.ttl, args.slug, i, args.duration_base, args.duration_per_char)
+        key, value, ttl = build_alert_entry(
+            alert["event"],
+            alert["priority"],
+            args.ttl,
+            args.slug,
+            i,
+            args.duration_base,
+            args.duration_per_char,
+        )
         client.set(key, value, ex=ttl)
         parsed = json.loads(value)
-        print(f"Wrote: {key}  (TTL={ttl}s, priority={parsed['priority']}, duration={parsed['display_duration']})")
+        print(
+            f"Wrote: {key}  (TTL={ttl}s, priority={parsed['priority']}, duration={parsed['display_duration']})"
+        )
 
     print(f"\nDone! {len(alerts)} alert(s) written. They will expire in {args.ttl}s.")
 

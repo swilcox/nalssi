@@ -2,15 +2,17 @@
 Tests for weather collector service.
 """
 
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timedelta, timezone
 
 from app.models.alert import Alert
 from app.models.location import Location
 from app.models.weather import WeatherData
 from app.services.collectors.weather_collector import WeatherCollector, get_collector
-from app.services.weather_apis.base import WeatherAlert, WeatherData as APIWeatherData
+from app.services.weather_apis.base import WeatherAlert
+from app.services.weather_apis.base import WeatherData as APIWeatherData
 
 
 @pytest.mark.unit
@@ -43,7 +45,7 @@ async def test_collect_for_location_us(db_session):
     mock_weather_data = APIWeatherData(
         temperature=20.0,
         temperature_fahrenheit=68.0,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         condition_text="Sunny",
         humidity=65,
         pressure=1013.25,
@@ -95,7 +97,7 @@ async def test_collect_for_location_non_us(db_session):
     mock_weather_data = APIWeatherData(
         temperature=8.3,
         temperature_fahrenheit=46.94,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         condition_text="Slight rain",
         humidity=78,
         pressure=1005.4,
@@ -158,7 +160,7 @@ async def test_collect_all_success(db_session):
     mock_weather_data = APIWeatherData(
         temperature=20.0,
         temperature_fahrenheit=68.0,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         condition_text="Sunny",
     )
 
@@ -207,7 +209,7 @@ async def test_collect_all_with_errors(db_session, capsys):
     mock_weather_data = APIWeatherData(
         temperature=20.0,
         temperature_fahrenheit=68.0,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         condition_text="Sunny",
     )
 
@@ -277,7 +279,7 @@ async def test_collect_for_location_preferred_api_override(db_session):
     mock_weather_data = APIWeatherData(
         temperature=18.5,
         temperature_fahrenheit=65.3,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         condition_text="Partly cloudy",
         humidity=65,
     )
@@ -317,7 +319,7 @@ async def test_alert_upsert_inserts_new_alert(db_session):
     db_session.commit()
     db_session.refresh(location)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     mock_weather = APIWeatherData(
         temperature=20.0,
         temperature_fahrenheit=68.0,
@@ -367,7 +369,7 @@ async def test_alert_upsert_updates_existing_alert(db_session):
     db_session.commit()
     db_session.refresh(location)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     mock_weather = APIWeatherData(
         temperature=20.0,
         temperature_fahrenheit=68.0,
@@ -441,7 +443,7 @@ async def test_alert_upsert_mixed_new_and_existing(db_session):
     db_session.commit()
     db_session.refresh(location)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     mock_weather = APIWeatherData(
         temperature=20.0,
         temperature_fahrenheit=68.0,
@@ -493,9 +495,7 @@ async def test_alert_upsert_mixed_new_and_existing(db_session):
         areas=["Test County"],
     )
 
-    collector.noaa_client.get_alerts = AsyncMock(
-        return_value=[alert1_updated, alert2]
-    )
+    collector.noaa_client.get_alerts = AsyncMock(return_value=[alert1_updated, alert2])
 
     await collector._collect_for_location(db_session, location)
     db_session.commit()
@@ -535,7 +535,7 @@ async def test_alert_disappearing_upstream_is_soft_expired(db_session):
     db_session.commit()
     db_session.refresh(location)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     mock_weather = APIWeatherData(
         temperature=20.0,
         temperature_fahrenheit=68.0,
@@ -562,18 +562,16 @@ async def test_alert_disappearing_upstream_is_soft_expired(db_session):
     db_session.commit()
 
     stored = (
-        db_session.query(Alert)
-        .filter(Alert.alert_id == "urn:test:cancelled")
-        .one()
+        db_session.query(Alert).filter(Alert.alert_id == "urn:test:cancelled").one()
     )
     original_expires = stored.expires
 
     # Next collection cycle: NOAA no longer returns the alert.
     collector.noaa_client.get_alerts = AsyncMock(return_value=[])
-    before_soft_expire = datetime.now(timezone.utc).replace(tzinfo=None)
+    before_soft_expire = datetime.now(UTC).replace(tzinfo=None)
     await collector._collect_for_location(db_session, location)
     db_session.commit()
-    after_soft_expire = datetime.now(timezone.utc).replace(tzinfo=None)
+    after_soft_expire = datetime.now(UTC).replace(tzinfo=None)
 
     db_session.refresh(stored)
     # expires should be roughly "now" (UTC), well below the original 2h window.
@@ -597,7 +595,7 @@ async def test_failed_alert_fetch_does_not_soft_expire(db_session):
     db_session.commit()
     db_session.refresh(location)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     mock_weather = APIWeatherData(
         temperature=20.0,
         temperature_fahrenheit=68.0,
@@ -624,9 +622,7 @@ async def test_failed_alert_fetch_does_not_soft_expire(db_session):
     db_session.commit()
 
     stored = (
-        db_session.query(Alert)
-        .filter(Alert.alert_id == "urn:test:keepalive")
-        .one()
+        db_session.query(Alert).filter(Alert.alert_id == "urn:test:keepalive").one()
     )
     expires_before = stored.expires
 

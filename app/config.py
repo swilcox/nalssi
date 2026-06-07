@@ -11,8 +11,8 @@ try:
     _APP_VERSION = version("nalssi")
 except PackageNotFoundError:
     # Fall back to reading pyproject.toml directly (e.g. dev without editable install)
-    from pathlib import Path
     import tomllib
+    from pathlib import Path
 
     _pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
     with open(_pyproject, "rb") as f:
