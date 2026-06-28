@@ -30,8 +30,13 @@ DEFAULT_ALERT_PRIORITIES = {
     "flood": 2,
     "winter storm": 2,
     "high wind": 2,
-    "excessive heat": 2,
-    "extreme heat": 2,
+    # Heat Watch and Warning (both the legacy "excessive heat" naming and the
+    # current "extreme heat" naming) collapse to the advisory tier (3): they
+    # often last for days, so surfacing them at warning priority spams the
+    # clock. The single keyword matches both the watch and warning event names
+    # via longest-match lookup.
+    "excessive heat": 3,
+    "extreme heat": 3,
     "fire weather": 2,
     "tornado watch": 2,
     "tsunami watch": 3,
@@ -45,8 +50,6 @@ DEFAULT_ALERT_PRIORITIES = {
     "ice storm watch": 3,
     "winter storm watch": 3,
     "high wind watch": 3,
-    "excessive heat watch": 3,
-    "extreme heat watch": 3,
     "fire weather watch": 3,
     "wind chill": 3,
     "freeze": 3,
