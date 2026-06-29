@@ -73,6 +73,15 @@ class Settings(BaseSettings):
         default=5,
         description="Maximum number of concurrent collection tasks",
     )
+    ALERT_PRIORITIES_FILE: str = Field(
+        default="",
+        description=(
+            "Path to a YAML file overriding alert display priorities. Uses the "
+            "same schema as the bundled defaults and is merged on top of them "
+            "(only the keywords/severities it lists change). Empty = bundled "
+            "defaults only. Read once at startup."
+        ),
+    )
 
     # Redis (optional)
     REDIS_URL: str = "redis://localhost:6379/0"

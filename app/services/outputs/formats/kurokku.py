@@ -10,19 +10,23 @@ from datetime import UTC, datetime
 
 import structlog
 
+from app.config import settings
 from app.models.location import Location
-from app.services.outputs.formats.alert_priorities import load_alert_priorities
+from app.services.outputs.formats.alert_priorities import (
+    load_effective_alert_priorities,
+)
 from app.services.weather_apis.base import WeatherAlert, WeatherData
 
 logger = structlog.get_logger()
 
-# Default alert priorities, loaded from the bundled alert_priorities.yaml so the
-# mapping is editable data rather than code. DEFAULT_ALERT_PRIORITIES is the
-# flattened {event substring -> priority level} map; CAP_SEVERITY_PRIORITIES is
-# the fallback used when an event name matches no keyword.
-_DEFAULT_PRIORITY_CONFIG = load_alert_priorities()
-DEFAULT_ALERT_PRIORITIES = _DEFAULT_PRIORITY_CONFIG.flatten()
-CAP_SEVERITY_PRIORITIES = _DEFAULT_PRIORITY_CONFIG.cap_fallback
+# Default alert priorities, loaded from the bundled alert_priorities.yaml (so the
+# mapping is editable data rather than code) with an optional user override file
+# layered on top via the ALERT_PRIORITIES_FILE setting. DEFAULT_ALERT_PRIORITIES
+# is the flattened {event substring -> priority level} map; CAP_SEVERITY_PRIORITIES
+# is the fallback used when an event name matches no keyword.
+DEFAULT_ALERT_PRIORITIES, CAP_SEVERITY_PRIORITIES = load_effective_alert_priorities(
+    settings.ALERT_PRIORITIES_FILE or None
+)
 
 
 def _coerce_number(value, default, kind, field):

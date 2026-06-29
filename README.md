@@ -208,6 +208,7 @@ Copy `.env.example` to `.env` and edit as needed. Key settings:
 | `DATABASE_URL` | `sqlite:///./nalssi.db` | Database connection |
 | `DEFAULT_COLLECTION_INTERVAL` | `300` | Seconds between collections |
 | `ENABLE_SCHEDULER` | `true` | Enable/disable background collection |
+| `ALERT_PRIORITIES_FILE` | | YAML file overriding alert display priorities (merged over the bundled defaults) |
 | `OPENWEATHER_API_KEY` | | Required for OpenWeatherMap |
 | `REDIS_URL` | | Redis backend connection |
 | `INFLUXDB_URL` | | InfluxDB backend connection |
