@@ -253,12 +253,21 @@ class TestAlertPriority:
         t = KurokuuFormatTransform()
         assert t._get_alert_priority("Unknown Weather Event") == 5
 
-    def test_custom_priorities(self):
+    def test_custom_priorities_patch_defaults(self):
+        # Per-backend alert_priorities patch the defaults rather than replacing
+        # them: listed keywords apply, and unlisted defaults are preserved.
         custom = {"test event": 0, "other event": 3}
         t = KurokuuFormatTransform({"alert_priorities": custom})
         assert t._get_alert_priority("Test Event Warning") == 0
         assert t._get_alert_priority("Other Event") == 3
-        assert t._get_alert_priority("Tornado Warning") == 5  # Not in custom
+        # Not in custom, but still resolved from the bundled defaults.
+        assert t._get_alert_priority("Tornado Warning") == 0
+
+    def test_custom_priorities_override_a_default(self):
+        # A backend can change a default keyword without touching the rest.
+        t = KurokuuFormatTransform({"alert_priorities": {"tornado": 4}})
+        assert t._get_alert_priority("Tornado Warning") == 4
+        assert t._get_alert_priority("Hurricane Warning") == 0  # default kept
 
     def test_longest_keyword_wins(self):
         # More specific keyword beats a more general one regardless of dict order.

@@ -77,15 +77,19 @@ class KurokuuFormatTransform:
 
         Args:
             format_config: Optional config dict with keys like:
-                - alert_priorities: dict mapping event substrings to priority levels
+                - alert_priorities: dict of event substring -> priority level,
+                  applied as a *patch* on top of the effective defaults (only
+                  the listed keywords change; others are kept)
                 - temp_ttl: TTL for temperature keys (default 3600)
         """
         self.format_config = format_config or {}
+        # Per-backend priorities patch the effective defaults (bundled YAML plus
+        # any ALERT_PRIORITIES_FILE override) rather than replacing them, so a
+        # backend only needs to list the few keywords it wants to differ.
+        override = self.format_config.get("alert_priorities") or {}
         self.alert_priorities = {
-            k.lower(): v
-            for k, v in self.format_config.get(
-                "alert_priorities", DEFAULT_ALERT_PRIORITIES
-            ).items()
+            **DEFAULT_ALERT_PRIORITIES,
+            **{k.lower(): v for k, v in override.items()},
         }
         self.temp_ttl = _coerce_number(
             self.format_config.get("temp_ttl"), self.DEFAULT_TEMP_TTL, int, "temp_ttl"
