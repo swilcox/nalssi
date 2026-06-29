@@ -11,66 +11,18 @@ from datetime import UTC, datetime
 import structlog
 
 from app.models.location import Location
+from app.services.outputs.formats.alert_priorities import load_alert_priorities
 from app.services.weather_apis.base import WeatherAlert, WeatherData
 
 logger = structlog.get_logger()
 
-# Default alert priority mapping (event substring -> priority level)
-DEFAULT_ALERT_PRIORITIES = {
-    "tornado": 0,
-    "tsunami": 0,
-    "extreme wind": 0,
-    "hurricane": 0,
-    "typhoon": 0,
-    "storm surge": 0,
-    "flash flood": 1,
-    "severe thunderstorm": 1,
-    "blizzard": 1,
-    "ice storm": 2,
-    "flood": 2,
-    "winter storm": 2,
-    "high wind": 2,
-    # Heat Watch and Warning (both the legacy "excessive heat" naming and the
-    # current "extreme heat" naming) collapse to the advisory tier (3): they
-    # often last for days, so surfacing them at warning priority spams the
-    # clock. The single keyword matches both the watch and warning event names
-    # via longest-match lookup.
-    "excessive heat": 3,
-    "extreme heat": 3,
-    "fire weather": 2,
-    "tornado watch": 2,
-    "tsunami watch": 3,
-    "storm surge watch": 3,
-    "hurricane watch": 3,
-    "typhoon watch": 3,
-    "severe thunderstorm watch": 3,
-    "flash flood watch": 3,
-    "flood watch": 3,
-    "blizzard watch": 3,
-    "ice storm watch": 3,
-    "winter storm watch": 3,
-    "high wind watch": 3,
-    "fire weather watch": 3,
-    "wind chill": 3,
-    "freeze": 3,
-    "frost": 3,
-    "cold weather advisory": 3,
-    "heat advisory": 3,
-    "wind advisory": 3,
-    "flood advisory": 3,
-    "dense fog": 3,
-    "winter weather": 4,
-    "special weather": 4,
-}
-
-# CAP severity fallback mapping when no event keyword matches
-CAP_SEVERITY_PRIORITIES = {
-    "extreme": 1,
-    "severe": 2,
-    "moderate": 3,
-    "minor": 4,
-    "unknown": 5,
-}
+# Default alert priorities, loaded from the bundled alert_priorities.yaml so the
+# mapping is editable data rather than code. DEFAULT_ALERT_PRIORITIES is the
+# flattened {event substring -> priority level} map; CAP_SEVERITY_PRIORITIES is
+# the fallback used when an event name matches no keyword.
+_DEFAULT_PRIORITY_CONFIG = load_alert_priorities()
+DEFAULT_ALERT_PRIORITIES = _DEFAULT_PRIORITY_CONFIG.flatten()
+CAP_SEVERITY_PRIORITIES = _DEFAULT_PRIORITY_CONFIG.cap_fallback
 
 
 def _coerce_number(value, default, kind, field):

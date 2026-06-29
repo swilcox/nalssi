@@ -1,0 +1,77 @@
+# Alert priority configuration for the kurokku LED-clock format.
+#
+# `tiers` maps a priority level to the list of event-name substrings that
+# should display at that level. Lower number = higher urgency (0 is shown most
+# aggressively). Matching is case-insensitive and longest-match-wins, so a more
+# specific keyword (e.g. "tornado watch") overrides a broader one ("tornado").
+#
+# `cap_fallback` is used only when an alert's event name matches no keyword
+# above; it maps the alert's CAP severity to a priority. (When that fallback is
+# used and the alert's urgency is "Immediate", the priority is bumped up one
+# level — see KurokuuFormatTransform._get_alert_priority.)
+#
+# This file is data, not code: edit it to retune priorities or to cover renamed
+# NWS event types without a code change. It is validated on load.
+
+tiers:
+  # 0 — life-threatening, shown most aggressively
+  0:
+    - tornado
+    - tsunami
+    - extreme wind
+    - hurricane
+    - typhoon
+    - storm surge
+
+  # 1 — severe, imminent
+  1:
+    - flash flood
+    - severe thunderstorm
+    - blizzard
+
+  # 2 — significant warnings
+  2:
+    - ice storm
+    - flood
+    - winter storm
+    - high wind
+    - fire weather
+    - tornado watch
+
+  # 3 — watches and advisories
+  3:
+    - excessive heat
+    - extreme heat
+    - tsunami watch
+    - storm surge watch
+    - hurricane watch
+    - typhoon watch
+    - severe thunderstorm watch
+    - flash flood watch
+    - flood watch
+    - blizzard watch
+    - ice storm watch
+    - winter storm watch
+    - high wind watch
+    - fire weather watch
+    - wind chill
+    - freeze
+    - frost
+    - cold weather advisory
+    - heat advisory
+    - wind advisory
+    - flood advisory
+    - dense fog
+
+  # 4 — low-urgency / informational
+  4:
+    - winter weather
+    - special weather
+
+# Fallback by CAP severity when no event keyword matches above.
+cap_fallback:
+  extreme: 1
+  severe: 2
+  moderate: 3
+  minor: 4
+  unknown: 5
