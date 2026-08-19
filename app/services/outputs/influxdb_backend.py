@@ -2,6 +2,7 @@
 InfluxDB output backend implementation.
 """
 
+from datetime import UTC, datetime
 from typing import cast
 
 import structlog
@@ -68,7 +69,10 @@ class InfluxDBOutputBackend(BaseOutputBackend):
         return self._client
 
     def _build_weather_point(
-        self, location: Location, weather_data: WeatherData
+        self,
+        location: Location,
+        weather_data: WeatherData,
+        precipitation: bool | None = None,
     ) -> Point:
         """Build an InfluxDB Point from weather data."""
         point = (
@@ -97,7 +101,30 @@ class InfluxDBOutputBackend(BaseOutputBackend):
         if weather_data.condition_text:
             point = point.field("condition", weather_data.condition_text)
 
+        # Radar precipitation state, when known. Written as an integer so it
+        # aggregates cleanly (mean over a window is the fraction of time wet).
+        if precipitation is not None:
+            point = point.field("radar_precipitation", int(precipitation))
+
         point = point.time(weather_data.timestamp, WritePrecision.S)
+        return cast(Point, point)
+
+    def _build_precipitation_point(
+        self, location: Location, precipitation: bool
+    ) -> Point:
+        """
+        Build a standalone precipitation Point.
+
+        Used when the weather fetch failed but radar still reported, so the
+        precipitation series doesn't develop a gap.
+        """
+        point = (
+            Point("weather")
+            .tag("location", location.slug or location.name)
+            .tag("country", location.country_code)
+            .field("radar_precipitation", int(precipitation))
+            .time(datetime.now(UTC), WritePrecision.S)
+        )
         return cast(Point, point)
 
     def _build_alert_point(self, location: Location, alert: WeatherAlert) -> Point:
@@ -120,12 +147,17 @@ class InfluxDBOutputBackend(BaseOutputBackend):
         location: Location,
         weather_data: WeatherData | None,
         alerts: list[WeatherAlert] | None,
+        precipitation: bool | None = None,
     ) -> WriteResult:
         """Write weather data and alerts to InfluxDB."""
         points: list[Point] = []
 
         if weather_data is not None:
-            points.append(self._build_weather_point(location, weather_data))
+            points.append(
+                self._build_weather_point(location, weather_data, precipitation)
+            )
+        elif precipitation is not None:
+            points.append(self._build_precipitation_point(location, precipitation))
 
         # alerts=None signals the upstream fetch failed; skip alert points so
         # we don't lose continuity in the time series.

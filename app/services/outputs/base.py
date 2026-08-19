@@ -40,6 +40,7 @@ class BaseOutputBackend(ABC):
         location: Location,
         weather_data: WeatherData | None,
         alerts: list[WeatherAlert] | None,
+        precipitation: bool | None = None,
     ) -> WriteResult:
         """
         Write weather data and alerts to the backend.
@@ -51,6 +52,11 @@ class BaseOutputBackend(ABC):
                 ``None`` means the upstream fetch failed and the alert state
                 is unknown — backends should leave any existing alert state
                 untouched. ``[]`` means upstream confirmed no active alerts.
+            precipitation: Whether radar currently shows precipitation over the
+                location. ``None`` means unknown — radar is disabled, the
+                location is outside coverage, or the lookup failed — and
+                backends should leave any existing precipitation state alone,
+                matching how ``alerts=None`` is treated.
 
         Returns:
             WriteResult with operation details

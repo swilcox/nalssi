@@ -637,5 +637,5 @@ async def test_failed_alert_fetch_does_not_soft_expire(db_session):
     assert stored.expires == expires_before  # untouched
     # Distribution payload should have alerts=None so backends preserve state.
     assert dist_item is not None
-    _loc, _wd, alerts_for_dist = dist_item
+    _loc, _wd, alerts_for_dist, _precip = dist_item
     assert alerts_for_dist is None

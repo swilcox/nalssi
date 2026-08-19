@@ -13,12 +13,14 @@ from typing import Any, TypeVar
 import structlog
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models.alert import Alert
 from app.models.forecast import Forecast
 from app.models.location import Location
 from app.models.weather import WeatherData
 from app.services.broadcast import manager as broadcast_manager
+from app.services.imagery.radar import get_radar_client, source_for
 from app.services.outputs.manager import OutputManager
 from app.services.weather_apis.noaa import NOAAWeatherClient
 from app.services.weather_apis.open_meteo import OpenMeteoClient
@@ -111,8 +113,8 @@ class WeatherCollector:
             # Distribute to output backends concurrently (non-blocking to collection)
             if pending_distributions:
                 dist_tasks = [
-                    self.output_manager.distribute(db, loc, wd, al)
-                    for loc, wd, al in pending_distributions
+                    self.output_manager.distribute(db, loc, wd, al, precip)
+                    for loc, wd, al, precip in pending_distributions
                 ]
                 dist_results = await asyncio.gather(*dist_tasks, return_exceptions=True)
                 for result in dist_results:
@@ -141,8 +143,8 @@ class WeatherCollector:
             location: Location to collect weather for
 
         Returns:
-            Tuple of (location, weather_data, alerts) for output distribution,
-            or None if there's nothing to distribute.
+            Tuple of (location, weather_data, alerts, precipitation) for output
+            distribution, or None if there's nothing to distribute.
 
         Raises:
             Exception: If weather collection fails
@@ -355,10 +357,52 @@ class WeatherCollector:
             source_api=client.name,
         )
 
+        precipitation = await self._get_precipitation(location)
+
         # Return distribution work item for batched concurrent execution.
         # alerts_for_distribution is None when the upstream fetch failed; backends
-        # interpret that as "leave existing alert state alone".
-        return (location, weather_data, alerts_for_distribution)
+        # interpret that as "leave existing alert state alone". precipitation is
+        # None on the same principle when radar can't answer.
+        return (location, weather_data, alerts_for_distribution, precipitation)
+
+    async def _get_precipitation(self, location: Location) -> bool | None:
+        """
+        Check whether radar shows precipitation over a location.
+
+        Returns:
+            True/False from radar, or None when the answer is unknown: radar
+            collection is disabled, the location is outside NWS coverage, or
+            the lookup failed. Backends treat None as "leave existing state
+            alone" rather than as "dry".
+        """
+        if not settings.RADAR_ENABLED:
+            return None
+
+        source = source_for(
+            location.latitude, location.longitude, location.country_code
+        )
+        if source is None:
+            return None
+
+        try:
+            precipitation = await get_radar_client().precip_at(
+                location.latitude, location.longitude, source
+            )
+        except Exception:
+            logger.warning(
+                "Radar precipitation lookup failed",
+                location_name=location.name,
+                location_id=str(location.id),
+                exc_info=True,
+            )
+            return None
+
+        logger.debug(
+            "Radar precipitation checked",
+            location_name=location.name,
+            precipitation=precipitation,
+        )
+        return precipitation
 
     async def _broadcast_updates(self, db: Session) -> None:
         """Broadcast updated dashboard cards and alerts to WebSocket clients."""

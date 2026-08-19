@@ -10,7 +10,10 @@ from pathlib import Path
 # This ensures the app uses test configuration, not production
 os.environ["ENABLE_SCHEDULER"] = "false"
 os.environ["DATABASE_URL"] = "sqlite:///./test_nalssi.db"
-# Radar is on so its routes and nav are registered for the route tests.
+# Radar is on so its routes and nav are registered for the route tests. The
+# network risk it introduces — the weather collector's precipitation lookup —
+# is neutralised by the autouse fixture below rather than by disabling the
+# whole feature, which would also unregister the routes under test.
 os.environ["RADAR_ENABLED"] = "true"
 
 import pytest
@@ -19,6 +22,24 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
+
+
+@pytest.fixture(autouse=True)
+def _no_radar_lookups_in_weather_collection(monkeypatch):
+    """
+    Keep the weather collector's radar precipitation lookup off the network.
+
+    Radar itself stays enabled so its routes exist; only this one call site is
+    suppressed. Tests that exercise the lookup patch the same module attribute
+    themselves, which takes precedence inside their own `with` block.
+    """
+    from types import SimpleNamespace
+
+    from app.services.collectors import weather_collector
+
+    monkeypatch.setattr(
+        weather_collector, "settings", SimpleNamespace(RADAR_ENABLED=False)
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)

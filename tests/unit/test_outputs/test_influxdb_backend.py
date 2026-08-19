@@ -312,3 +312,65 @@ class TestInfluxDBOutputBackend:
             client2 = backend._get_client()
             assert client is client2
             assert mock_cls.call_count == 1
+
+
+class TestInfluxDBPrecipitation:
+    """Radar precipitation state as a field on the weather measurement."""
+
+    @staticmethod
+    def _line(mock_write_api):
+        call_kwargs = mock_write_api.write.call_args
+        points = call_kwargs.kwargs.get("record") or call_kwargs[1].get("record")
+        return points, points[0].to_line_protocol()
+
+    @pytest.mark.asyncio
+    async def test_wet_is_written_as_one(self):
+        backend, _, mock_write_api = _make_backend()
+
+        await backend.write(_make_location(), _make_weather(), [], True)
+
+        _, line = self._line(mock_write_api)
+        assert "radar_precipitation=1i" in line
+
+    @pytest.mark.asyncio
+    async def test_dry_is_written_as_zero(self):
+        """Dry must be recorded, not omitted, so the series has no false gaps."""
+        backend, _, mock_write_api = _make_backend()
+
+        await backend.write(_make_location(), _make_weather(), [], False)
+
+        _, line = self._line(mock_write_api)
+        assert "radar_precipitation=0i" in line
+
+    @pytest.mark.asyncio
+    async def test_unknown_is_omitted(self):
+        backend, _, mock_write_api = _make_backend()
+
+        await backend.write(_make_location(), _make_weather(), [], None)
+
+        _, line = self._line(mock_write_api)
+        assert "radar_precipitation" not in line
+
+    @pytest.mark.asyncio
+    async def test_precipitation_recorded_when_weather_fetch_failed(self):
+        """Radar still reports even if the weather API didn't."""
+        backend, _, mock_write_api = _make_backend()
+
+        result = await backend.write(_make_location(), None, [], True)
+
+        assert result.success is True
+        assert result.keys_written == 1
+        points, line = self._line(mock_write_api)
+        assert len(points) == 1
+        assert "radar_precipitation=1i" in line
+        assert "location=spring_hill" in line
+
+    @pytest.mark.asyncio
+    async def test_no_points_when_everything_is_unknown(self):
+        backend, _, mock_write_api = _make_backend()
+
+        result = await backend.write(_make_location(), None, None, None)
+
+        assert result.success is True
+        assert result.keys_written == 0
+        mock_write_api.write.assert_not_called()
