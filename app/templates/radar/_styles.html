@@ -1,0 +1,90 @@
+{# Shared radar styles: the stacked-image stage is used at thumbnail size on
+   the list and full size on the detail view. #}
+<style>
+    .radar-stage {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--surface-2);
+    }
+    .radar-stage img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+    }
+    /*
+       Basemap bands. The upstream servers publish only line styles and reject
+       custom SLD, so each band is fetched separately and coloured here — that
+       is what makes water and the administrative levels distinguishable.
+
+       Water arrives as a filled image and keeps its own blue; the boundary
+       bands are black line art, so they are used as a mask and painted with a
+       theme colour, which also lets counties sit visually behind states.
+    */
+    .radar-band {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+    }
+    /* Masked rather than shown directly: the source image is a pale blue that
+       washes out to grey over a dark page. Painting through its alpha gives a
+       water colour that holds up in both themes. */
+    .radar-band-water {
+        background-color: #7fb2d9;
+        opacity: 0.45;
+    }
+    .radar-band-masked {
+        -webkit-mask-size: 100% 100%;
+        mask-size: 100% 100%;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+    }
+    .radar-band-counties {
+        background-color: var(--line-strong);
+        opacity: 0.5;
+    }
+    .radar-band-admin {
+        background-color: var(--text-strong);
+        opacity: 0.85;
+    }
+    [data-theme="dark"] .radar-band-water {
+        background-color: #4d7f9e;
+        opacity: 0.5;
+    }
+    [data-theme="dark"] .radar-band-counties { opacity: 0.4; }
+    [data-theme="dark"] .radar-band-admin { opacity: 0.9; }
+    .radar-overlay {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+    .radar-ring {
+        fill: none;
+        stroke: var(--text-strong);
+        stroke-width: 0.22;
+        stroke-dasharray: 1.2 1.2;
+        opacity: 0.42;
+    }
+    .radar-ring-label {
+        fill: var(--text-strong);
+        font-size: 2.4px;
+        text-anchor: middle;
+        opacity: 0.6;
+        paint-order: stroke;
+        stroke: var(--surface-2);
+        stroke-width: 0.7;
+        stroke-linejoin: round;
+    }
+    /* White halo under a dark core keeps the marker legible over both the pale
+       basemap and saturated reflectivity colors. */
+    .radar-center-halo { fill: #fff; opacity: 0.9; }
+    .radar-center { fill: #d21b1b; }
+</style>

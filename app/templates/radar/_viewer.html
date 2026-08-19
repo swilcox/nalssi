@@ -1,0 +1,88 @@
+{#
+  The animated loop. Frames are stacked as sibling <img> elements and revealed
+  one at a time so playback never flickers waiting on a network fetch.
+
+  The location is the exact center pixel of every frame, because the bounding
+  box is computed around its coordinates rather than taken from a prebuilt
+  image — so the marker and rings are simply centered.
+#}
+<div class="radar-stage radar-detail-stage" data-radar>
+    {% for band in loc.basemap_bands %}
+    <div class="radar-band radar-band-masked radar-band-{{ band.kind }}"
+         style="-webkit-mask-image: url('{{ band.url }}'); mask-image: url('{{ band.url }}');"
+         role="img" aria-label="{{ band.kind }} basemap band for {{ loc.name }}"></div>
+    {% endfor %}
+    {% for frame in loc.frames %}
+    <img class="radar-frame" src="{{ frame.url }}" data-timestamp="{{ frame.timestamp }}"
+         alt="" aria-hidden="true">
+    {% endfor %}
+    <svg class="radar-overlay" viewBox="0 0 100 100" aria-hidden="true">
+        {% for ring in loc.rings %}
+        <circle class="radar-ring" cx="50" cy="50" r="{{ ring.radius | round(3) }}"/>
+        <text class="radar-ring-label" x="50" y="{{ (50 - ring.radius) | round(3) }}" dy="-0.8">
+            {{ ring.km | round | int }} km
+        </text>
+        {% endfor %}
+        <circle class="radar-center-halo" cx="50" cy="50" r="1.5"/>
+        <circle class="radar-center" cx="50" cy="50" r="0.7"/>
+    </svg>
+</div>
+<div class="radar-controls">
+    <button class="radar-play secondary" type="button">Play</button>
+    <input class="radar-slider" type="range" min="0" max="{{ loc.frames | length - 1 }}"
+           value="{{ loc.frames | length - 1 }}" aria-label="Radar frame for {{ loc.name }}">
+    <span class="radar-time"></span>
+</div>
+
+<script>
+(function () {
+    var stage = document.querySelector(".radar-stage[data-radar]");
+    if (!stage || stage.dataset.radarInit) return;
+    stage.dataset.radarInit = "1";
+
+    var frames = Array.prototype.slice.call(stage.querySelectorAll(".radar-frame"));
+    if (!frames.length) return;
+
+    var playBtn = document.querySelector(".radar-play");
+    var slider = document.querySelector(".radar-slider");
+    var label = document.querySelector(".radar-time");
+    var index = frames.length - 1;
+    var timer = null;
+
+    function show(i) {
+        frames[index].classList.remove("is-active");
+        index = (i + frames.length) % frames.length;
+        frames[index].classList.add("is-active");
+        slider.value = index;
+        var iso = frames[index].dataset.timestamp;
+        var d = new Date(iso);
+        label.textContent = isNaN(d) ? iso : d.toLocaleTimeString([], {
+            hour: "numeric", minute: "2-digit"
+        });
+    }
+
+    function stop() {
+        if (timer) { clearInterval(timer); timer = null; }
+        playBtn.textContent = "Play";
+    }
+
+    function play() {
+        timer = setInterval(function () {
+            show(index === frames.length - 1 ? 0 : index + 1);
+        }, 220);
+        playBtn.textContent = "Pause";
+    }
+
+    playBtn.addEventListener("click", function () {
+        if (timer) { stop(); } else { play(); }
+    });
+
+    slider.addEventListener("input", function () {
+        stop();
+        show(parseInt(slider.value, 10));
+    });
+
+    show(index);
+    play();
+})();
+</script>

@@ -24,6 +24,7 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.alert import Alert
     from app.models.forecast import Forecast
+    from app.models.radar_frame import RadarFrame
     from app.models.weather import WeatherData
 
 
@@ -86,6 +87,9 @@ class Location(Base):
     )
     forecasts: Mapped[list[Forecast]] = relationship(
         "Forecast", back_populates="location", cascade="all, delete-orphan"
+    )
+    radar_frames: Mapped[list[RadarFrame]] = relationship(
+        "RadarFrame", back_populates="location", cascade="all, delete-orphan"
     )
 
     def __repr__(self):

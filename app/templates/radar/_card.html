@@ -1,0 +1,35 @@
+{#
+  One location on the radar list: its most recent frame as a still. Range rings
+  are omitted at this size — only the center marker, which is where the
+  location is by construction.
+#}
+<a class="radar-tile" href="/radar/{{ loc.slug }}" aria-label="Radar loop for {{ loc.name }}">
+    <div class="radar-stage">
+        {% if loc.covered and loc.latest %}
+        {% for band in loc.basemap_bands %}
+        <div class="radar-band radar-band-masked radar-band-{{ band.kind }}"
+             style="-webkit-mask-image: url('{{ band.url }}'); mask-image: url('{{ band.url }}');"></div>
+        {% endfor %}
+        <img src="{{ loc.latest.url }}" alt="Latest radar reflectivity for {{ loc.name }}">
+        <svg class="radar-overlay" viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="radar-center-halo" cx="50" cy="50" r="2"/>
+            <circle class="radar-center" cx="50" cy="50" r="1"/>
+        </svg>
+        {% elif not loc.covered %}
+        <div class="radar-tile-empty">Outside NWS radar coverage</div>
+        {% else %}
+        <div class="radar-tile-empty">Awaiting first collection</div>
+        {% endif %}
+    </div>
+    <div class="radar-tile-title">{{ loc.name }}</div>
+    <div class="radar-tile-meta">
+        {% if loc.covered and loc.latest %}
+        <span class="radar-tile-time" data-timestamp="{{ loc.latest.timestamp }}">&mdash;</span>
+        &middot; {{ loc.frame_count }} frame{{ "s" if loc.frame_count != 1 }}
+        {% elif not loc.covered %}
+        No coverage
+        {% else %}
+        No frames yet
+        {% endif %}
+    </div>
+</a>

@@ -12,6 +12,7 @@ services:
       - LOG_LEVEL=INFO
       - DEFAULT_COLLECTION_INTERVAL=300
       - FORECAST_COLLECTION_INTERVAL=3600
+      - RADAR_STORAGE_DIR=/app/data/radar
       - API_HOST=0.0.0.0
       - API_PORT=8000
     depends_on:

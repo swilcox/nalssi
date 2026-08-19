@@ -49,6 +49,7 @@ flowchart LR
 
 - **Multi-API support** — NOAA Weather.gov, Open-Meteo, OpenWeatherMap with automatic selection and fallback
 - **Weather alerts** — Collects and stores warnings/watches with upsert deduplication
+- **Radar imagery** — Two hours of animated NWS reflectivity per location, collected server-side and served locally
 - **Output backends** — Redis (with pluggable format transforms) and InfluxDB, with more planned
 - **REST API** — Full CRUD for locations, weather data, alerts, and backend configuration
 - **Web UI** — HTMX-based dashboard for managing locations, backends, and viewing weather data
@@ -78,6 +79,91 @@ The API and web UI will be available at `http://localhost:8000`.
 | NOAA Weather.gov | US | Free | No |
 | Open-Meteo | Global | Free (non-commercial) | No |
 | OpenWeatherMap | Global | Free tier | Yes |
+
+## Radar Imagery
+
+`/radar` lists every location with a still of its most recent frame; selecting
+one opens `/radar/<location>`, the detail view with roughly two hours of
+animated NWS reflectivity centered on that location.
+
+The split keeps the list to one image per location rather than a full loop
+each, so it stays fast as locations and retention grow.
+
+Frames come from the NCEP GeoServer WMS (`opengeo.ncep.noaa.gov`), which needs no
+API key and publishes a rolling ~2 hour time dimension at about 2 minute cadence.
+Because any timestamp in that window can be requested directly, a newly added
+location backfills its entire history on the first collection rather than warming
+up over two hours.
+
+Each location's basemap is fetched once and cached, since the view is a pure
+function of its coordinates; only the transparent radar layer is stored per
+frame. The basemap comes in three separately-stored bands — shaded water from
+USGS hydrography, US counties, and state/province boundaries — which the viewer
+colours independently so water, counties, and state lines are each
+distinguishable. They are split rather than combined because the upstream
+servers publish only line styles and refuse custom SLD, so the visual hierarchy
+has to be applied client-side. A location holds roughly 1–2 MB at the default settings, pruned on a
+rolling window. Storage for deleted locations, and basemaps superseded by a
+settings change, are cleaned up on the next cycle.
+
+Radar is fully feature-gated. With `RADAR_ENABLED=false` no radar routes are
+registered at all and the nav item disappears, so a deployment focused on
+alerts and observations carries none of it.
+
+Locations that share coordinates share their imagery. Running the same place
+under two providers (one NOAA, one OpenWeatherMap) is a normal setup, and those
+locations resolve to the same radar view, so the frames are downloaded and
+stored once and referenced by both.
+
+Radar collection is independent of which weather API a location uses. The
+source is chosen from the location's coordinates and country: US locations use
+the NWS MRMS mosaic, Canadian locations use ECCC's MSC GeoMet (3 hours of
+history at 6-minute steps). Coverage overlaps across the border — the US mosaic
+reaches well into southern Canada — so a location's own national service wins
+where both apply. Locations outside all covered areas are skipped
+automatically.
+
+See [docs/international-weather-services.md](docs/international-weather-services.md)
+for what's available in Europe, Japan, and Korea, and what adding another
+source involves.
+
+The location itself is marked at the center of every frame, with configurable
+distance rings around it. Both are SVG drawn over the images rather than baked
+in, so they cost nothing to store and can be changed without refetching: the
+location is the exact center pixel by construction, since the bounding box is
+computed around its coordinates rather than taken from a prebuilt image.
+
+Rings are drawn as plain circles. Web Mercator is conformal so they stay
+circular, and the km-per-pixel scale drifts less than 2% across a 240 km view at
+CONUS latitudes (about 3.5% in Alaska).
+
+### Precipitation state for output backends
+
+Alongside the imagery, each collection cycle asks the radar whether it is
+currently precipitating over each location and passes that to the output
+backends:
+
+- **Redis (kurokku)** — `kurokku:weather:{slug}:precip` set to `Rain` or `Dry`
+- **InfluxDB** — a `radar_precipitation` field (`1`/`0`) on the `weather`
+  measurement, so a mean over a window reads as the fraction of time it was wet
+
+The value is deliberately a boolean, not a reflectivity number. NOAA's public
+radar services render a mosaic rather than exposing a data raster, so numeric
+dBZ is not retrievable; only the rendered pixel's alpha channel is, which needs
+no assumptions about NOAA's styling.
+
+When the state is unknown — radar disabled, location outside coverage, or the
+lookup failed — backends leave any existing value alone rather than reporting
+`Dry`, the same way an alert fetch failure preserves existing alert state.
+
+## Forecast
+
+`/forecast` lists every location with a near-term outlook — the current period
+plus the next few, with day and night marked separately. Selecting one opens
+`/forecast/<location>` with every upcoming period in full detail.
+
+As with radar, the split keeps the list compact rather than stacking a full
+14-period grid per location down a single page.
 
 ## API Documentation
 
@@ -209,6 +295,13 @@ Copy `.env.example` to `.env` and edit as needed. Key settings:
 | `DEFAULT_COLLECTION_INTERVAL` | `300` | Seconds between collections |
 | `ENABLE_SCHEDULER` | `true` | Enable/disable background collection |
 | `ALERT_PRIORITIES_FILE` | | YAML file overriding alert display priorities (merged over the bundled defaults) |
+| `RADAR_ENABLED` | `true` | Collect radar imagery for US locations |
+| `RADAR_STORAGE_DIR` | `./data/radar` | Where radar frames are cached on disk |
+| `RADAR_RETENTION_MINUTES` | `120` | Radar history to keep (upstream offers ~2h max) |
+| `RADAR_VIEW_SPAN_KM` | `240` | Width of each location's radar view |
+| `RADAR_RANGE_RINGS_KM` | `50,100` | Distance rings drawn around the location (empty to disable) |
+| `RADAR_GEOMET_URL` | MSC GeoMet | Canadian radar WMS endpoint |
+| `RADAR_HYDRO_WMS_URL` | USGS hydro | Water shading for the basemap (empty to disable) |
 | `OPENWEATHER_API_KEY` | | Required for OpenWeatherMap |
 | `REDIS_URL` | | Redis backend connection |
 | `INFLUXDB_URL` | | InfluxDB backend connection |

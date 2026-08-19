@@ -10,6 +10,8 @@ from pathlib import Path
 # This ensures the app uses test configuration, not production
 os.environ["ENABLE_SCHEDULER"] = "false"
 os.environ["DATABASE_URL"] = "sqlite:///./test_nalssi.db"
+# Radar is on so its routes and nav are registered for the route tests.
+os.environ["RADAR_ENABLED"] = "true"
 
 import pytest
 from sqlalchemy import create_engine

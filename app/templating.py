@@ -6,7 +6,13 @@ from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
 
+from app.config import settings
+
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+# Feature flags every template can read, so the nav doesn't have to be passed
+# them by each individual route.
+templates.env.globals["radar_enabled"] = settings.RADAR_ENABLED
 
 # Weather condition icon mapping (condition_text -> icon class)
 # Matches against lowercased condition_text substrings

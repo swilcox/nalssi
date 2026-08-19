@@ -83,6 +83,84 @@ class Settings(BaseSettings):
         ),
     )
 
+    # Radar imagery
+    RADAR_ENABLED: bool = Field(
+        default=True,
+        description="Enable periodic radar frame collection",
+    )
+    RADAR_WMS_BASE_URL: str = "https://opengeo.ncep.noaa.gov/geoserver/ows"
+    RADAR_GEOMET_URL: str = Field(
+        default="https://geo.weather.gc.ca/geomet",
+        description="MSC GeoMet WMS endpoint, used for Canadian locations",
+    )
+    RADAR_HYDRO_WMS_URL: str = Field(
+        default=(
+            "https://basemap.nationalmap.gov/arcgis/services/"
+            "USGSHydroCached/MapServer/WMSServer"
+        ),
+        description=(
+            "WMS endpoint supplying shaded water for the radar basemap. "
+            "Empty disables the water band."
+        ),
+    )
+    RADAR_STORAGE_DIR: str = Field(
+        default="./data/radar",
+        description="Directory holding per-location radar frames and basemaps",
+    )
+    RADAR_COLLECTION_INTERVAL: int = Field(
+        default=300,
+        description="Radar collection interval in seconds",
+    )
+    RADAR_RETENTION_MINUTES: int = Field(
+        default=120,
+        description=(
+            "How much radar history to keep, in minutes. The upstream service "
+            "only offers a ~2 hour rolling window, so values above ~120 have "
+            "no additional effect."
+        ),
+    )
+    RADAR_VIEW_SPAN_KM: float = Field(
+        default=240.0,
+        description="Width/height of the radar view centered on each location, in km",
+    )
+    RADAR_IMAGE_SIZE: int = Field(
+        default=600,
+        description="Radar image width and height in pixels (square)",
+    )
+    RADAR_MAX_CONCURRENT_FETCHES: int = Field(
+        default=4,
+        description="Max concurrent radar frame downloads (politeness cap)",
+    )
+    RADAR_RANGE_RINGS_KM: str = Field(
+        default="50,100",
+        description=(
+            "Comma-separated distances, in km, to draw as range rings around "
+            "each location. Empty disables rings. Rings wider than half the "
+            "view span are ignored since they fall outside the image."
+        ),
+    )
+
+    @property
+    def radar_range_rings(self) -> list[float]:
+        """
+        Parse RADAR_RANGE_RINGS_KM into a sorted list of distances.
+
+        Unparseable entries are dropped rather than failing startup, since a
+        malformed ring list shouldn't take the whole service down.
+        """
+        rings = []
+        for part in self.RADAR_RANGE_RINGS_KM.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                value = float(part)
+            except ValueError:
+                continue
+            if value > 0:
+                rings.append(value)
+        return sorted(set(rings))
+
     # Redis (optional)
     REDIS_URL: str = "redis://localhost:6379/0"
 
@@ -99,12 +177,32 @@ class Settings(BaseSettings):
         description="API server port",
     )
 
-    @field_validator("DEFAULT_COLLECTION_INTERVAL", "FORECAST_COLLECTION_INTERVAL")
+    @field_validator(
+        "DEFAULT_COLLECTION_INTERVAL",
+        "FORECAST_COLLECTION_INTERVAL",
+        "RADAR_COLLECTION_INTERVAL",
+    )
     @classmethod
     def validate_collection_interval(cls, v: int) -> int:
         """Validate that collection interval is positive."""
         if v <= 0:
             raise ValueError("Collection interval must be positive")
+        return v
+
+    @field_validator("RADAR_VIEW_SPAN_KM")
+    @classmethod
+    def validate_radar_span(cls, v: float) -> float:
+        """Validate that the radar view span is positive."""
+        if v <= 0:
+            raise ValueError("Radar view span must be positive")
+        return v
+
+    @field_validator("RADAR_IMAGE_SIZE")
+    @classmethod
+    def validate_radar_image_size(cls, v: int) -> int:
+        """Validate the radar image size against the WMS server's limits."""
+        if v < 1 or v > 4096:
+            raise ValueError("Radar image size must be between 1 and 4096")
         return v
 
     @field_validator("API_PORT")
