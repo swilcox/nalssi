@@ -6,6 +6,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.routes import radar as radar_routes
@@ -491,9 +492,86 @@ class TestBasemapBands:
         page = client.get("/radar").text
         assert f"/radar/{radar_location['slug']}/basemap/water.png" in page
 
-    def test_band_traversal_is_rejected(self, client, radar_location):
-        """The kind segment must not escape the storage directory."""
-        response = client.get(
-            f"/radar/{radar_location['slug']}/basemap/..%2F..%2Fsecret.png"
-        )
-        assert response.status_code == 404
+
+class TestPathSafety:
+    """
+    The image routes serve files from disk, so every user-controlled segment
+    has to be incapable of escaping the storage root.
+
+    CodeQL reports py/path-injection on _safe_file because it cannot see that
+    the directory is a hash, that the band is resolved through a whitelist,
+    and that Path.relative_to is a containment barrier. These tests pin the
+    behaviour those alerts are unable to prove.
+    """
+
+    TRAVERSALS = [
+        "../secret",
+        "..%2Fsecret",
+        "..%252Fsecret",
+        "%2e%2e%2fsecret",
+        "....//secret",
+        "..;/secret",
+        "../../etc/passwd",
+    ]
+
+    @pytest.fixture
+    def planted_secret(self, radar_storage):
+        """A readable file just outside the storage root."""
+        secret = radar_storage.parent / "secret.png"
+        secret.write_bytes(b"TOPSECRET")
+        return secret
+
+    def test_frame_traversal_cannot_escape_the_root(
+        self, client, radar_location, planted_secret
+    ):
+        for attack in self.TRAVERSALS:
+            response = client.get(
+                f"/radar/{radar_location['slug']}/frames/{attack}.png"
+            )
+            assert response.status_code in (404, 422), attack
+            assert b"TOPSECRET" not in response.content, attack
+
+    def test_band_traversal_cannot_escape_the_root(
+        self, client, radar_location, planted_secret
+    ):
+        for attack in self.TRAVERSALS:
+            response = client.get(
+                f"/radar/{radar_location['slug']}/basemap/{attack}.png"
+            )
+            assert response.status_code in (404, 422), attack
+            assert b"TOPSECRET" not in response.content, attack
+
+    def test_slug_segment_cannot_escape_the_root(self, client, planted_secret):
+        """The slug is a database lookup, never a path component."""
+        for attack in ["../..", "..%2F..", "%2e%2e"]:
+            response = client.get(f"/radar/{attack}/frames/123.png")
+            assert response.status_code in (404, 422), attack
+            assert b"TOPSECRET" not in response.content, attack
+
+    def test_epoch_is_constrained_to_an_integer(self, client, radar_location):
+        """int typing leaves no room for a separator in the frame filename."""
+        for attack in ["abc", "1.5", "-1", "99999999999999999999"]:
+            response = client.get(
+                f"/radar/{radar_location['slug']}/frames/{attack}.png"
+            )
+            assert response.status_code in (404, 422), attack
+
+    def test_safe_file_rejects_a_path_outside_the_root(self, radar_storage):
+        outside = radar_storage.parent / "outside.png"
+        outside.write_bytes(PNG_BYTES)
+        with pytest.raises(HTTPException) as exc:
+            radar_routes._safe_file(outside)
+        assert exc.value.status_code == 404
+
+    def test_safe_file_rejects_a_symlink_out_of_the_root(self, radar_storage):
+        """
+        The containment check runs after resolve(), so a link that sits inside
+        the root but points outside it is still rejected.
+        """
+        outside = radar_storage.parent / "sym-target.png"
+        outside.write_bytes(PNG_BYTES)
+        link = radar_storage / "inside-link.png"
+        link.symlink_to(outside)
+        with pytest.raises(HTTPException) as exc:
+            radar_routes._safe_file(link)
+        assert exc.value.status_code == 404
