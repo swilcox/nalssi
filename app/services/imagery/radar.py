@@ -106,6 +106,10 @@ CRS = "EPSG:3857"
 # Web Mercator is defined on a sphere of this radius.
 _EARTH_RADIUS_M = 6378137.0
 
+# GeoMet labels a pixel with no precipitation estimate this way, casefolded for
+# comparison. Every other class is a rate band and counts as a return.
+UNDETECTED_CLASS = "undetected"
+
 # Bounding box in projected metres: (min_x, min_y, max_x, max_y)
 BBox = tuple[float, float, float, float]
 
@@ -463,11 +467,23 @@ class RadarClient:
         """
         Check whether precipitation is currently falling at a coordinate.
 
-        Queries the rendered radar pixel covering the point and reports whether
-        it is painted at all. Only the alpha channel is used: these services
-        render a mosaic rather than exposing a data raster, so no numeric
-        reflectivity is available. Alpha alone needs no assumptions about how a
-        provider styles its layer and cannot drift if that styling changes.
+        Queries the radar pixel covering the point. Providers answer in their
+        own shape, so the response is read two ways:
+
+        NOAA renders a mosaic with no data raster behind it — the ArcGIS
+        identify endpoint returns NoData even over a confirmed echo, and the
+        layer's colour ramp is unpublished — so only the rendered pixel's alpha
+        channel is usable. Alpha needs no assumptions about the provider's
+        styling and cannot drift if that styling changes.
+
+        GeoMet serves the estimate itself: a precipitation rate, plus a class
+        that reads "Undetected" where nothing is falling. Note that its rain and
+        snow layers are the same reflectivity under two conversion formulas and
+        both light up together, so neither identifies the precipitation type.
+
+        A payload matching neither shape raises rather than reporting dry, so an
+        unhandled provider surfaces as unknown and leaves existing state alone
+        instead of silently reporting clear skies forever.
 
         Args:
             latitude: Latitude coordinate
@@ -478,7 +494,8 @@ class RadarClient:
             True if the radar shows a return at this point.
 
         Raises:
-            Exception: If the request fails or returns an unexpected payload.
+            Exception: If the request fails, or the payload matches no known
+                provider shape.
         """
         # A small box queried at its center pixel. WMS 1.3.0 with EPSG:4326
         # takes bbox coordinates in lat,lon order.
@@ -514,11 +531,27 @@ class RadarClient:
             return False
 
         properties = features[0].get("properties", {})
-        # Providers name the alpha band differently; any non-zero alpha counts.
+
+        # Rendered-pixel providers. The alpha band is named differently across
+        # servers; any non-zero alpha counts as a return.
         for key in ("ALPHA_BAND", "alpha_band", "BAND_4", "band_4"):
             if key in properties:
                 return bool(properties[key])
-        return False
+
+        # Value providers. A null rate means the pixel carries no estimate, in
+        # which case the class label is the remaining signal.
+        value = properties.get("value")
+        if value is not None:
+            return float(value) > 0
+
+        label = properties.get("class")
+        if label is not None:
+            return str(label).strip().casefold() != UNDETECTED_CLASS
+
+        raise RuntimeError(
+            f"Unrecognised GetFeatureInfo payload from {source.name}: "
+            f"properties {sorted(properties)}"
+        )
 
     def _map_params(self, layers: str, bbox: BBox) -> dict:
         """Build the common GetMap query parameters."""

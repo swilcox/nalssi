@@ -205,11 +205,15 @@ class TestFetchFrame:
 
 class TestPrecipAt:
     """
-    Precipitation state comes from the rendered pixel's alpha channel.
+    Precipitation state is read from whichever shape the provider answers in.
 
-    Numeric dBZ is not retrievable from these services (the ArcGIS `identify`
-    endpoint returns NoData even over confirmed echoes, and the layer's color
-    ramp is unpublished), so alpha is the only assumption-free signal.
+    NOAA exposes no numeric data (the ArcGIS `identify` endpoint returns NoData
+    even over confirmed echoes, and the layer's color ramp is unpublished), so
+    the rendered pixel's alpha channel is the only assumption-free signal.
+    GeoMet returns the precipitation rate itself and never sends an alpha band,
+    which is why reading alpha alone reported every Canadian location as dry.
+
+    The payloads below are the shapes the live services actually return.
     """
 
     def _response(self, properties):
@@ -223,7 +227,7 @@ class TestPrecipAt:
             },
         )
 
-    async def test_opaque_pixel_means_precipitation(
+    async def test_noaa_opaque_pixel_means_precipitation(
         self, client, us_source, respx_mock
     ):
         respx_mock.get("https://geo.example.test/geoserver/ows").mock(
@@ -234,7 +238,7 @@ class TestPrecipAt:
 
         assert await client.precip_at(39.5, -79.5, us_source) is True
 
-    async def test_transparent_pixel_means_no_precipitation(
+    async def test_noaa_transparent_pixel_means_no_precipitation(
         self, client, us_source, respx_mock
     ):
         respx_mock.get("https://geo.example.test/geoserver/ows").mock(
@@ -275,6 +279,69 @@ class TestPrecipAt:
         assert params["j"] == "10"
         assert params["width"] == "21"
         assert params["height"] == "21"
+
+    async def test_geomet_rate_means_precipitation(self, client, ca_source, respx_mock):
+        """A non-zero rate is a return, even though no alpha band is present."""
+        respx_mock.get("https://geomet.example.test/geomet").mock(
+            return_value=self._response(
+                {
+                    "value": 0.42107189,
+                    "class": "0.1 - 1.0 (mm/h)",
+                    "title_en": "Radar precipitation rate for rain [mm/h]",
+                }
+            )
+        )
+
+        assert await client.precip_at(43.65, -79.38, ca_source) is True
+
+    async def test_geomet_zero_rate_means_no_precipitation(
+        self, client, ca_source, respx_mock
+    ):
+        respx_mock.get("https://geomet.example.test/geomet").mock(
+            return_value=self._response(
+                {
+                    "value": 0,
+                    "class": "Undetected",
+                    "title_en": "Radar precipitation rate for rain [mm/h]",
+                }
+            )
+        )
+
+        assert await client.precip_at(43.65, -79.38, ca_source) is False
+
+    async def test_geomet_falls_back_to_the_class_label(
+        self, client, ca_source, respx_mock
+    ):
+        """A null rate leaves the class as the only signal."""
+        respx_mock.get("https://geomet.example.test/geomet").mock(
+            return_value=self._response({"value": None, "class": "1.0 - 2.5 (mm/h)"})
+        )
+
+        assert await client.precip_at(43.65, -79.38, ca_source) is True
+
+    async def test_geomet_undetected_class_means_no_precipitation(
+        self, client, ca_source, respx_mock
+    ):
+        respx_mock.get("https://geomet.example.test/geomet").mock(
+            return_value=self._response({"value": None, "class": "Undetected"})
+        )
+
+        assert await client.precip_at(43.65, -79.38, ca_source) is False
+
+    async def test_unrecognised_payload_raises_rather_than_reporting_dry(
+        self, client, ca_source, respx_mock
+    ):
+        """
+        Reporting False for a shape nobody parsed is what hid the GeoMet bug:
+        every Canadian location read as dry indefinitely. Raising surfaces it as
+        unknown instead, so backends leave the existing state alone.
+        """
+        respx_mock.get("https://geomet.example.test/geomet").mock(
+            return_value=self._response({"GRAY_INDEX": 17.5, "unexpected": "shape"})
+        )
+
+        with pytest.raises(RuntimeError, match="Unrecognised GetFeatureInfo"):
+            await client.precip_at(43.65, -79.38, ca_source)
 
     async def test_http_error_propagates(self, client, us_source, respx_mock):
         respx_mock.get("https://geo.example.test/geoserver/ows").mock(
