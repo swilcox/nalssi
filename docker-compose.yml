@@ -13,6 +13,7 @@ services:
       - DATABASE_URL=postgresql://nalssi:nalssi@postgres:5432/nalssi
       - LOG_LEVEL=INFO
       - DEFAULT_COLLECTION_INTERVAL=300
+      - RADAR_STORAGE_DIR=/app/data/radar
       - API_HOST=0.0.0.0
       - API_PORT=8000
     depends_on:

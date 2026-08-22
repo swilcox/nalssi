@@ -168,6 +168,7 @@ class OutputManager:
         location: Location,
         weather_data: WeatherData | None,
         alerts: list[WeatherAlert] | None,
+        precipitation: bool | None = None,
     ) -> WriteResult:
         """
         Write to a single backend with timeout protection.
@@ -184,7 +185,7 @@ class OutputManager:
 
         try:
             result = await asyncio.wait_for(
-                backend.write(location, weather_data, alerts),
+                backend.write(location, weather_data, alerts, precipitation),
                 timeout=self.backend_timeout,
             )
 
@@ -243,6 +244,7 @@ class OutputManager:
         location: Location,
         weather_data: WeatherData | None,
         alerts: list[WeatherAlert] | None,
+        precipitation: bool | None = None,
     ) -> list[WriteResult]:
         """
         Distribute weather data to all matching backends concurrently.
@@ -258,6 +260,10 @@ class OutputManager:
                 ``None`` signals the upstream fetch failed and backends should
                 preserve any existing alert state. ``[]`` means upstream
                 confirmed there are no active alerts.
+            precipitation: Whether radar shows precipitation over the location.
+                ``None`` means unknown (radar disabled, location out of
+                coverage, or the lookup failed) and backends should leave any
+                existing precipitation state alone.
 
         Returns:
             List of WriteResult from each backend
@@ -288,7 +294,9 @@ class OutputManager:
                 continue
 
             tasks.append(
-                self._write_single_backend(config, location, weather_data, alerts)
+                self._write_single_backend(
+                    config, location, weather_data, alerts, precipitation
+                )
             )
 
         # Run all backend writes concurrently

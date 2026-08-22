@@ -206,6 +206,37 @@ class KurokuuFormatTransform:
 
         return [(key, display_value, self.temp_ttl)]
 
+    def format_precipitation(
+        self, location: Location, precipitation: bool | None
+    ) -> list[tuple[str, str, int]]:
+        """
+        Format radar precipitation state into Redis key/value/ttl tuples.
+
+        Args:
+            location: Location model instance (must have slug)
+            precipitation: True/False from radar, or None if unknown
+
+        Returns:
+            List of (key, value, ttl) tuples. Empty when the state is unknown,
+            so the existing key is left to TTL out rather than being
+            overwritten with a guess.
+        """
+        if precipitation is None:
+            return []
+
+        slug = location.slug
+        if not slug:
+            logger.warning(
+                "Location %s has no slug, skipping precipitation write",
+                location.name,
+            )
+            return []
+
+        display_value = "Rain" if precipitation else "Dry"
+        key = f"kurokku:weather:{slug}:precip"
+
+        return [(key, display_value, self.temp_ttl)]
+
     def _get_alert_priority(
         self,
         event: str,

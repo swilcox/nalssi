@@ -1,0 +1,56 @@
+{% include "radar/_styles.html" %}
+<style>
+    .radar-detail-stage { max-width: 640px; box-shadow: var(--card-shadow); }
+    .radar-detail-stage .radar-frame { opacity: 0; transition: opacity 60ms linear; }
+    .radar-detail-stage .radar-frame.is-active { opacity: 1; }
+    .radar-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        max-width: 640px;
+        margin-top: 0.75rem;
+    }
+    .radar-controls button {
+        width: auto;
+        margin: 0;
+        padding: 0.35rem 0.9rem;
+        flex: 0 0 auto;
+    }
+    .radar-controls input[type="range"] { flex: 1 1 auto; margin: 0; }
+    .radar-time {
+        flex: 0 0 auto;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        min-width: 8.5rem;
+        text-align: right;
+    }
+    .radar-back {
+        display: inline-block;
+        margin-bottom: 0.4rem;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        text-decoration: none;
+    }
+    .radar-back:hover { color: var(--accent); }
+</style>
+
+<div class="page-heading">
+    <div>
+        <a class="radar-back" href="/radar">&larr; All radar</a>
+        <p class="page-eyebrow">Precipitation</p>
+        <h1>{{ loc.name }}</h1>
+        <p class="page-subtitle">
+            {{ loc.provider }} reflectivity &middot; {{ loc.span_km | round | int }} km across
+            &middot; {{ "%.4f"|format(loc.latitude) }}, {{ "%.4f"|format(loc.longitude) }}
+        </p>
+    </div>
+</div>
+
+{% if not loc.covered %}
+<div class="empty-state">This location is outside NWS radar coverage.</div>
+{% elif not loc.frames %}
+<div class="empty-state">No radar frames yet. They will appear after the next collection cycle.</div>
+{% else %}
+{% include "radar/_viewer.html" %}
+{% endif %}

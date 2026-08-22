@@ -1,0 +1,73 @@
+{% include "radar/_styles.html" %}
+<style>
+    .radar-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 1.25rem;
+    }
+    .radar-tile {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        border-radius: 14px;
+        transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    .radar-tile:hover,
+    .radar-tile:focus-visible {
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow-hover);
+    }
+    .radar-tile:hover .radar-stage { border-color: var(--accent); }
+    .radar-tile-title {
+        margin: 0.7rem 0 0.1rem;
+        font-size: 1.02rem;
+        font-weight: 600;
+        color: var(--text-strong);
+    }
+    .radar-tile-meta {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+    }
+    .radar-tile-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        inset: 0;
+        padding: 1rem;
+        text-align: center;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+    }
+</style>
+
+<div class="page-heading">
+    <div>
+        <p class="page-eyebrow">Precipitation</p>
+        <h1>Radar</h1>
+        <p class="page-subtitle">Latest national radar by location. Select one for the two-hour loop.</p>
+    </div>
+</div>
+
+{% if not radar_locations %}
+<div class="empty-state">No locations configured. <a href="/locations">Add a location</a> to get started.</div>
+{% else %}
+<div class="radar-grid">
+    {% for loc in radar_locations %}
+    {% include "radar/_card.html" %}
+    {% endfor %}
+</div>
+{% endif %}
+
+<script>
+(function () {
+    // Stamp each still with its local capture time.
+    document.querySelectorAll(".radar-tile-time[data-timestamp]").forEach(function (el) {
+        var d = new Date(el.dataset.timestamp);
+        if (!isNaN(d)) {
+            el.textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        }
+    });
+})();
+</script>

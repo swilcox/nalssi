@@ -10,6 +10,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import settings
 from app.services.collectors import get_collector
+from app.services.collectors.radar_collector import get_radar_collector
 
 logger = structlog.get_logger()
 
@@ -30,6 +31,7 @@ class SchedulerService:
             },
         )
         self.collector = get_collector()
+        self.radar_collector = get_radar_collector()
         logger.info("Scheduler service initialized")
 
     def start(self) -> None:
@@ -58,11 +60,23 @@ class SchedulerService:
             replace_existing=True,
         )
 
+        # Add radar collection job (separate interval, optional)
+        if settings.RADAR_ENABLED:
+            self.scheduler.add_job(
+                func=self.radar_collector.collect_all_sync,
+                trigger=IntervalTrigger(seconds=settings.RADAR_COLLECTION_INTERVAL),
+                id="radar_collection",
+                name="Collect radar imagery for all locations",
+                replace_existing=True,
+            )
+
         self.scheduler.start()
         logger.info(
             "Scheduler started",
             weather_interval_seconds=settings.DEFAULT_COLLECTION_INTERVAL,
             forecast_interval_seconds=settings.FORECAST_COLLECTION_INTERVAL,
+            radar_enabled=settings.RADAR_ENABLED,
+            radar_interval_seconds=settings.RADAR_COLLECTION_INTERVAL,
         )
 
         # Run first collection immediately
@@ -77,6 +91,13 @@ class SchedulerService:
             self.collector.collect_all_forecasts_sync()
         except Exception:
             logger.exception("Initial forecast collection failed")
+
+        if settings.RADAR_ENABLED:
+            logger.info("Running initial radar collection")
+            try:
+                self.radar_collector.collect_all_sync()
+            except Exception:
+                logger.exception("Initial radar collection failed")
 
     def shutdown(self) -> None:
         """

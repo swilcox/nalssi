@@ -1,0 +1,56 @@
+{# One location on the forecast list: the current period plus a short strip. #}
+{% from "_weather_icon.html" import render as weather_icon_svg %}
+<a class="forecast-tile" href="/forecast/{{ loc.slug }}" aria-label="Full forecast for {{ loc.location_name }}">
+    <h2>{{ loc.location_name }}</h2>
+    <div class="forecast-tile-meta">
+        {% if loc.period_count %}
+        {{ loc.source_api }} &middot; {{ loc.period_count }} period{{ "s" if loc.period_count != 1 }}
+        {% else %}
+        Awaiting first collection
+        {% endif %}
+    </div>
+
+    {% if loc.current %}
+    <div class="forecast-tile-now">
+        {{ weather_icon_svg(loc.current.condition_text | weather_icon, "46") }}
+        <div>
+            <div class="forecast-tile-temp">
+                {% if loc.current.temperature_fahrenheit is not none %}
+                {{ "%.0f" | format(loc.current.temperature_fahrenheit) }}&deg;F
+                {% else %}
+                --
+                {% endif %}
+            </div>
+            <div class="forecast-tile-cond">
+                {{ loc.current.short_label }}{% if loc.current.is_daytime is not none %} {{ "day" if loc.current.is_daytime else "night" }}{% endif %}
+                {%- if loc.current.condition_text %} &middot; {{ loc.current.condition_text }}{% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if loc.upcoming %}
+    <div class="forecast-tile-strip">
+        {% for period in loc.upcoming %}
+        {% set is_night = period.is_daytime is not none and not period.is_daytime %}
+        {#
+          Day and night periods share a weekday name, so the night ones are
+          marked rather than relying on dimming alone to tell them apart.
+        #}
+        <div class="forecast-tile-step{% if is_night %} step-night{% endif %}"
+             {% if is_night %}title="{{ period.short_label }} night"{% endif %}>
+            {{ period.short_label }}{% if is_night %}<span class="step-moon" aria-label="night">&#9790;</span>{% endif %}
+            <span class="step-temp">
+                {% if period.temperature_fahrenheit is not none %}
+                {{ "%.0f" | format(period.temperature_fahrenheit) }}&deg;
+                {% else %}
+                --
+                {% endif %}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="forecast-tile-empty">No forecast data yet. It will appear after the next collection cycle.</div>
+    {% endif %}
+</a>

@@ -25,6 +25,9 @@ coverage.xml
 *.sqlite
 *.sqlite3
 
+# Collected radar imagery (rolling cache, regenerated on demand)
+data/
+
 # Environment
 .env
 .env.local

@@ -8,12 +8,13 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import backends, locations, system, weather, ws
+from app.api.routes import backends, locations, radar, system, weather, ws
 from app.api.routes.pages import alerts as page_alerts
 from app.api.routes.pages import backends as page_backends
 from app.api.routes.pages import dashboard as page_dashboard
 from app.api.routes.pages import forecast as page_forecast
 from app.api.routes.pages import locations as page_locations
+from app.api.routes.pages import radar as page_radar
 from app.api.routes.pages import system as page_system
 from app.config import settings
 from app.logging_config import setup_logging, unify_uvicorn_logging
@@ -84,6 +85,13 @@ app.include_router(locations.router, prefix="/api/v1", tags=["Locations"])
 app.include_router(weather.router, prefix="/api/v1", tags=["Weather"])
 app.include_router(backends.router, prefix="/api/v1", tags=["Backends"])
 
+# Radar is fully feature-gated: with RADAR_ENABLED off, no radar routes are
+# registered at all, so a deployment focused on alerts and observations doesn't
+# expose a half-working section.
+if settings.RADAR_ENABLED:
+    # Serves stored PNGs, so it sits outside /api
+    app.include_router(radar.router, tags=["Radar"])
+
 # Include WebSocket router
 app.include_router(ws.router)
 
@@ -93,4 +101,6 @@ app.include_router(page_locations.router, tags=["Pages"])
 app.include_router(page_backends.router, tags=["Pages"])
 app.include_router(page_alerts.router, tags=["Pages"])
 app.include_router(page_forecast.router, tags=["Pages"])
+if settings.RADAR_ENABLED:
+    app.include_router(page_radar.router, tags=["Pages"])
 app.include_router(page_system.router, tags=["Pages"])

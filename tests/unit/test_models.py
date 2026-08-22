@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models.backend_config import OutputBackendConfig
 from app.models.location import Location
+from app.models.radar_frame import RadarFrame
 from app.models.weather import WeatherData
 
 
@@ -412,3 +413,111 @@ def test_output_backend_config_str(db_session):
 
     assert "My Redis" in str(config)
     assert "redis" in str(config)
+
+
+@pytest.fixture
+def radar_location(db_session):
+    """A location to attach radar frames to."""
+    location = Location(
+        name="Radar Test City",
+        latitude=44.98,
+        longitude=-93.27,
+        country_code="US",
+    )
+    db_session.add(location)
+    db_session.commit()
+    return location
+
+
+@pytest.mark.unit
+def test_radar_frame_creation(db_session, radar_location):
+    """Test creating a radar frame."""
+    frame_time = datetime(2026, 8, 17, 15, 50, 17, tzinfo=UTC)
+    frame = RadarFrame(
+        location_id=radar_location.id,
+        frame_time=frame_time,
+        file_path=f"{radar_location.id}/1755445817.png",
+        file_size=2048,
+    )
+    db_session.add(frame)
+    db_session.commit()
+
+    assert frame.id is not None
+    assert frame.file_size == 2048
+    assert frame.fetched_at is not None
+
+
+@pytest.mark.unit
+def test_radar_frame_epoch_survives_naive_roundtrip(db_session, radar_location):
+    """
+    SQLite drops tzinfo, so the epoch must be derived from a UTC-normalized
+    value rather than the raw column (which would be read as local time).
+    """
+    frame_time = datetime(2026, 8, 17, 15, 50, 17, tzinfo=UTC)
+    frame = RadarFrame(
+        location_id=radar_location.id,
+        frame_time=frame_time,
+        file_path="x.png",
+        file_size=1,
+    )
+    db_session.add(frame)
+    db_session.commit()
+    db_session.expire_all()
+
+    reloaded = db_session.query(RadarFrame).filter_by(id=frame.id).one()
+    assert reloaded.frame_time_utc == frame_time
+    assert reloaded.epoch == int(frame_time.timestamp())
+
+
+@pytest.mark.unit
+def test_radar_frame_dedup_index_rejects_duplicates(db_session, radar_location):
+    """Test that one frame per location+timestamp is enforced."""
+    frame_time = datetime(2026, 8, 17, 15, 50, 17, tzinfo=UTC)
+    for path in ("a.png", "b.png"):
+        db_session.add(
+            RadarFrame(
+                location_id=radar_location.id,
+                frame_time=frame_time,
+                file_path=path,
+                file_size=1,
+            )
+        )
+
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+@pytest.mark.unit
+def test_radar_frames_cascade_on_location_delete(db_session, radar_location):
+    """Test that deleting a location removes its radar frames."""
+    db_session.add(
+        RadarFrame(
+            location_id=radar_location.id,
+            frame_time=datetime(2026, 8, 17, 15, 50, 17, tzinfo=UTC),
+            file_path="a.png",
+            file_size=1,
+        )
+    )
+    db_session.commit()
+    assert db_session.query(RadarFrame).count() == 1
+
+    db_session.delete(radar_location)
+    db_session.commit()
+
+    assert db_session.query(RadarFrame).count() == 0
+
+
+@pytest.mark.unit
+def test_radar_frame_repr(db_session, radar_location):
+    """Test string representation of RadarFrame."""
+    frame = RadarFrame(
+        location_id=radar_location.id,
+        frame_time=datetime(2026, 8, 17, 15, 50, 17, tzinfo=UTC),
+        file_path="a.png",
+        file_size=1,
+    )
+    db_session.add(frame)
+    db_session.commit()
+
+    assert "RadarFrame" in repr(frame)
+    assert str(radar_location.id) in repr(frame)

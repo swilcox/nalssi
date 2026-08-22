@@ -1,30 +1,97 @@
 <div hx-ext="ws" ws-connect="/ws/weather">
+<style>
+    .forecast-tile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.25rem;
+    }
+    .forecast-tile {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        background: var(--surface-1);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 1.1rem 1.2rem;
+        transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+    .forecast-tile:hover,
+    .forecast-tile:focus-visible {
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow-hover);
+        border-color: var(--accent);
+    }
+    .forecast-tile h2 {
+        margin: 0;
+        font-size: 1.05rem;
+        color: var(--text-strong);
+    }
+    .forecast-tile-meta {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-bottom: 0.75rem;
+    }
+    .forecast-tile-now {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding-bottom: 0.85rem;
+        border-bottom: 1px solid var(--line);
+    }
+    .forecast-tile-temp {
+        font-size: 1.9rem;
+        font-weight: 600;
+        color: var(--text-strong);
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+    }
+    .forecast-tile-cond {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+    }
+    .forecast-tile-strip {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.4rem;
+        margin-top: 0.85rem;
+    }
+    .forecast-tile-step {
+        flex: 1 1 0;
+        text-align: center;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+    .forecast-tile-step .step-temp {
+        display: block;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-body);
+        font-variant-numeric: tabular-nums;
+    }
+    .forecast-tile-step.step-night { opacity: 0.7; }
+    .forecast-tile-step .step-moon { margin-left: 0.15rem; font-size: 0.7rem; }
+    .forecast-tile-empty {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        padding: 0.6rem 0;
+    }
+</style>
+
 <div class="page-heading">
     <div>
         <p class="page-eyebrow">Forward Look</p>
         <h1>Forecast</h1>
-        <p class="page-subtitle">Upcoming periods grouped by location and provider.</p>
+        <p class="page-subtitle">Near-term outlook by location. Select one for all periods.</p>
     </div>
 </div>
 
 {% if not forecast_locations %}
-<div class="empty-state">No forecast data available. Forecasts will appear after the next collection cycle.</div>
+<div class="empty-state">No locations configured. <a href="/locations">Add a location</a> to get started.</div>
 {% else %}
-{% for loc in forecast_locations %}
-<section class="forecast-location">
-    <div class="section-heading">
-        <div>
-            <h2>{{ loc.location_name }}</h2>
-            <div class="meta-line">Source: {{ loc.source_api }}</div>
-        </div>
-    </div>
-
-    <div class="forecast-grid">
-        {% for period in loc.periods %}
-        {% include "forecast/_period_card.html" %}
-        {% endfor %}
-    </div>
-</section>
-{% endfor %}
+<div class="forecast-tile-grid">
+    {% for loc in forecast_locations %}
+    {% include "forecast/_summary_card.html" %}
+    {% endfor %}
+</div>
 {% endif %}
 </div>

@@ -361,3 +361,68 @@ class AsyncIterator:
         if not self.items:
             raise StopAsyncIteration
         return self.items.pop(0)
+
+
+class TestRedisPrecipitation:
+    """Radar precipitation state written alongside the weather keys."""
+
+    def _backend_and_client(self):
+        backend = RedisOutputBackend(
+            name="test",
+            config={"url": "redis://localhost:6379/0"},
+            format_type="kurokku",
+        )
+        mock_client = AsyncMock()
+        backend._client = mock_client
+        mock_client.scan_iter = MagicMock(return_value=AsyncIterator([]))
+        return backend, mock_client
+
+    @pytest.mark.asyncio
+    async def test_write_precipitation_wet(self):
+        backend, mock_client = self._backend_and_client()
+
+        result = await backend.write(
+            _make_location(slug="spring_hill"), _make_weather(), [], True
+        )
+
+        assert result.success is True
+        assert result.keys_written == 4  # temp + humidity + conditions + precip
+        mock_client.set.assert_any_call(
+            "kurokku:weather:spring_hill:precip", "Rain", ex=3600
+        )
+
+    @pytest.mark.asyncio
+    async def test_write_precipitation_dry(self):
+        backend, mock_client = self._backend_and_client()
+
+        await backend.write(
+            _make_location(slug="spring_hill"), _make_weather(), [], False
+        )
+
+        mock_client.set.assert_any_call(
+            "kurokku:weather:spring_hill:precip", "Dry", ex=3600
+        )
+
+    @pytest.mark.asyncio
+    async def test_unknown_precipitation_writes_no_key(self):
+        """None must leave any existing key alone rather than guessing."""
+        backend, mock_client = self._backend_and_client()
+
+        result = await backend.write(
+            _make_location(slug="spring_hill"), _make_weather(), [], None
+        )
+
+        assert result.keys_written == 3
+        written = {call.args[0] for call in mock_client.set.call_args_list}
+        assert "kurokku:weather:spring_hill:precip" not in written
+
+    @pytest.mark.asyncio
+    async def test_precipitation_defaults_to_unknown(self):
+        """Callers that predate the parameter keep their old behaviour."""
+        backend, mock_client = self._backend_and_client()
+
+        result = await backend.write(
+            _make_location(slug="spring_hill"), _make_weather(), []
+        )
+
+        assert result.keys_written == 3

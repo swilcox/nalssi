@@ -76,6 +76,7 @@ class RedisOutputBackend(BaseOutputBackend):
         location: Location,
         weather_data: WeatherData | None,
         alerts: list[WeatherAlert] | None,
+        precipitation: bool | None = None,
     ) -> WriteResult:
         """
         Write weather data and alerts to Redis.
@@ -83,7 +84,8 @@ class RedisOutputBackend(BaseOutputBackend):
         Alert syncing is diff-based: only keys that changed are written, only
         keys that disappeared upstream are deleted, and unchanged keys whose
         TTL has drifted significantly get an EXPIRE refresh. ``alerts=None``
-        signals an upstream fetch failure — alert keys are left untouched.
+        signals an upstream fetch failure — alert keys are left untouched, as
+        is the precipitation key when ``precipitation`` is None.
         """
         if not self.transform:
             return WriteResult(
@@ -93,18 +95,28 @@ class RedisOutputBackend(BaseOutputBackend):
             )
 
         client = self._get_client()
+        transform = self.transform
         keys_written = 0
         keys_deleted = 0
         errors = []
 
-        # Write weather data (temperature, humidity, conditions)
-        for label, method in [
-            ("Temperature", self.transform.format_temperature),
-            ("Humidity", self.transform.format_humidity),
-            ("Conditions", self.transform.format_conditions),
+        # Write weather data (temperature, humidity, conditions) plus the radar
+        # precipitation state. Each formatter yields (key, value, ttl) tuples and
+        # may yield none at all, which is how an unknown value is skipped.
+        for label, build_entries in [
+            (
+                "Temperature",
+                lambda: transform.format_temperature(location, weather_data),
+            ),
+            ("Humidity", lambda: transform.format_humidity(location, weather_data)),
+            ("Conditions", lambda: transform.format_conditions(location, weather_data)),
+            (
+                "Precipitation",
+                lambda: transform.format_precipitation(location, precipitation),
+            ),
         ]:
             try:
-                entries = method(location, weather_data)
+                entries = build_entries()
                 for key, value, ttl in entries:
                     await client.set(key, value, ex=ttl)
                     keys_written += 1
